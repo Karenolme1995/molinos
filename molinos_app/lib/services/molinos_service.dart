@@ -52,6 +52,21 @@ class MaquinaHistorialMolino {
   final String? subtitulo;
   final String? observaciones;
   final String? turno;
+  final int? bitacoraId;
+  final String? fechaProxima;
+  final String? fechaTermino;
+  final String? horaTermino;
+  final String? tiempoMuerto;
+  final int? dias;
+  final int? diasRestantes;
+  final String? semaforo;
+  final String? statusManto;
+  final String? descripcionPreven;
+  final String? descripcionCorrec;
+  final String? operador;
+  final String? supervisor;
+  final String? usuario;
+  final String? numero;
 
   const MaquinaHistorialMolino({
     required this.tipo,
@@ -61,6 +76,21 @@ class MaquinaHistorialMolino {
     this.subtitulo,
     this.observaciones,
     this.turno,
+    this.bitacoraId,
+    this.fechaProxima,
+    this.fechaTermino,
+    this.horaTermino,
+    this.tiempoMuerto,
+    this.dias,
+    this.diasRestantes,
+    this.semaforo,
+    this.statusManto,
+    this.descripcionPreven,
+    this.descripcionCorrec,
+    this.operador,
+    this.supervisor,
+    this.usuario,
+    this.numero,
   });
 
   factory MaquinaHistorialMolino.fromJson(Map<String, dynamic> json) {
@@ -72,6 +102,21 @@ class MaquinaHistorialMolino {
       subtitulo: _nullable(json['subtitulo']),
       observaciones: _nullable(json['observaciones']),
       turno: _nullable(json['turno']),
+      bitacoraId: _intOrNull(json['bitacora_id']),
+      fechaProxima: _nullable(json['fecha_proxima']),
+      fechaTermino: _nullable(json['fecha_termino']),
+      horaTermino: _nullable(json['hora_termino']),
+      tiempoMuerto: _nullable(json['tiempo_muerto']),
+      dias: _intOrNull(json['dias']),
+      diasRestantes: _intOrNull(json['dias_restantes']),
+      semaforo: _nullable(json['semaforo']),
+      statusManto: _nullable(json['status_manto']),
+      descripcionPreven: _nullable(json['descripcion_preven']),
+      descripcionCorrec: _nullable(json['descripcion_correc']),
+      operador: _nullable(json['operador']),
+      supervisor: _nullable(json['supervisor']),
+      usuario: _nullable(json['usuario']),
+      numero: _nullable(json['numero']),
     );
   }
 
@@ -80,7 +125,18 @@ class MaquinaHistorialMolino {
     final text = value.toString();
     return text.isEmpty ? null : text;
   }
+
+  static int? _intOrNull(dynamic value) {
+    if (value == null) return null;
+    return int.tryParse(value.toString());
+  }
+
+  bool get mantenimientoActivo {
+    final s = (statusManto ?? '').toUpperCase();
+    return tipo == 'mantenimiento' && s != 'TERMINO' && s != 'TERMINADO' && s != 'CERRADO';
+  }
 }
+
 
 
 class MantenimientoMolino {
@@ -226,4 +282,20 @@ class MolinosService {
         .map((e) => MaquinaHistorialMolino.fromJson(Map<String, dynamic>.from(e)))
         .toList();
   }
+  Future<void> cerrarMantenimiento({
+    required int maquinaId,
+    int? bitacoraId,
+    String? descripcionCorrec,
+  }) async {
+    final res = await http.post(
+      Uri.parse('${ApiService.baseUrl}/molinos/maquinas/$maquinaId/mantenimiento/cerrar'),
+      headers: ApiService.headers(token: token),
+      body: jsonEncode({
+        'bitacora_id': bitacoraId,
+        'descripcion_correc': descripcionCorrec,
+      }),
+    );
+    ApiService.decode(res);
+  }
+
 }

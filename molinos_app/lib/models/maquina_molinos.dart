@@ -13,6 +13,8 @@ class MaquinaMolinos {
   final String? mantenimientoFechaProxima;
   final String? mantenimientoProximo;
   final bool mantenimientoAlerta;
+  final int? mantenimientoDiasRestantes;
+  final String? mantenimientoSemaforo;
   final List<EmpleadoMolinos> empleados;
 
   const MaquinaMolinos({
@@ -28,6 +30,8 @@ class MaquinaMolinos {
     this.mantenimientoFechaProxima,
     this.mantenimientoProximo,
     this.mantenimientoAlerta = false,
+    this.mantenimientoDiasRestantes,
+    this.mantenimientoSemaforo,
     required this.empleados,
   });
 
@@ -45,6 +49,10 @@ class MaquinaMolinos {
       mantenimientoFechaProxima: _asNullableString(json['mantenimiento_fecha_proxima']),
       mantenimientoProximo: _asNullableString(json['mantenimiento_proximo']),
       mantenimientoAlerta: _asBool(json['mantenimiento_alerta']),
+      mantenimientoDiasRestantes: json['mantenimiento_dias_restantes'] == null
+          ? null
+          : int.tryParse(json['mantenimiento_dias_restantes'].toString()),
+      mantenimientoSemaforo: _asNullableString(json['mantenimiento_semaforo']),
       empleados: (json['empleados'] as List? ?? [])
           .map((e) => EmpleadoMolinos.fromJson(Map<String, dynamic>.from(e)))
           .toList(),

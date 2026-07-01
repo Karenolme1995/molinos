@@ -149,6 +149,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
     int? mantenimientoId;
     int? diasAuto;
     String fechaProximaAuto = '';
+    String buscarMantenimiento = '';
 
     final esMantenimiento = estado == 'mantenimiento';
     final cierraMantenimiento = maquina.estado == 'mantenimiento' && estado != 'mantenimiento';
@@ -193,40 +194,62 @@ class _MolinosScreenState extends State<MolinosScreen> {
                 if (esMantenimiento) ...[
                   StatefulBuilder(
                     builder: (context, setDialogState) {
-                      return DropdownButtonFormField<int>(
-                        value: mantenimientoId,
-                        isExpanded: true,
-                        items: mantenimientos.map((m) {
-                          return DropdownMenuItem<int>(
-                            value: m.id,
-                            child: Text(
-                              '${m.tipoMant} · cada ${m.tiempoMant}',
-                              overflow: TextOverflow.ellipsis,
+                      final qMant = buscarMantenimiento.trim().toLowerCase();
+                      final List<MantenimientoMolino> filtrados = qMant.isEmpty
+                          ? mantenimientos
+                          : mantenimientos.where((m) {
+                              return m.tipoMant.toLowerCase().contains(qMant) ||
+                                  m.tiempoMant.toLowerCase().contains(qMant);
+                            }).toList();
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextField(
+                            onChanged: (value) {
+                              setDialogState(() => buscarMantenimiento = value);
+                            },
+                            decoration: InputDecoration(
+                              labelText: 'Buscar mantenimiento',
+                              prefixIcon: const Icon(Icons.search),
+                              helperText: mantenimientos.isEmpty
+                                  ? 'No hay mantenimientos activos para el área MOLINOS'
+                                  : 'Se carga desde la tabla mantenimientos',
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                             ),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          MantenimientoMolino? seleccionado;
-                          for (final m in mantenimientos) {
-                            if (m.id == value) {
-                              seleccionado = m;
-                              break;
-                            }
-                          }
-                          setDialogState(() {
-                            mantenimientoId = value;
-                            mantenimiento = seleccionado?.tipoMant ?? '';
-                            diasAuto = diasDesdeTiempoMant(seleccionado?.tiempoMant ?? '');
-                            fechaProximaAuto = diasAuto == null ? '' : fechaProximaDesdeDias(diasAuto!);
-                          });
-                        },
-                        decoration: InputDecoration(
-                          labelText: 'Mantenimiento',
-                          helperText: mantenimientos.isEmpty
-                              ? 'No hay mantenimientos activos para el área MOLINOS'
-                              : 'Se carga desde la tabla mantenimientos',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            constraints: const BoxConstraints(maxHeight: 190),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.shade300),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: filtrados.length,
+                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              itemBuilder: (_, index) {
+                                final m = filtrados[index];
+                                final seleccionado = mantenimientoId == m.id;
+                                return ListTile(
+                                  dense: true,
+                                  selected: seleccionado,
+                                  leading: Icon(seleccionado ? Icons.check_circle : Icons.build_outlined),
+                                  title: Text(m.tipoMant, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  subtitle: Text('Frecuencia: ${m.tiempoMant}'),
+                                  onTap: () {
+                                    setDialogState(() {
+                                      mantenimientoId = m.id;
+                                      mantenimiento = m.tipoMant;
+                                      diasAuto = diasDesdeTiempoMant(m.tiempoMant);
+                                      fechaProximaAuto = diasAuto == null ? '' : fechaProximaDesdeDias(diasAuto!);
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       );
                     },
                   ),
@@ -235,7 +258,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       fechaProximaAuto.isEmpty
-                          ? 'Fecha próxima: se calculará con tiempo_mant'
+                          ? 'Fecha próxima: se calculará con los días del mantenimiento'
                           : 'Fecha próxima automática: $fechaProximaAuto',
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
@@ -321,8 +344,8 @@ class _MolinosScreenState extends State<MolinosScreen> {
                   Expanded(
                     child: TabBarView(
                       children: [
-                        _historialList(historial, vacio: 'Sin historial para esta jornada y turno.'),
-                        _historialList(mantenimientos, vacio: 'Sin mantenimientos registrados para este molino.'),
+                        _historialList(historial, vacio: 'Sin historial para esta jornada y turno.', maquina: maquina),
+                        _historialList(mantenimientos, vacio: 'Sin mantenimientos registrados para este molino.', maquina: maquina),
                       ],
                     ),
                   ),
@@ -338,22 +361,60 @@ class _MolinosScreenState extends State<MolinosScreen> {
     }
   }
 
-  Widget _historialList(List<MaquinaHistorialMolino> rows, {required String vacio}) {
+  Widget _historialList(List<MaquinaHistorialMolino> rows, {required String vacio, MaquinaMolinos? maquina}) {
     if (rows.isEmpty) return Center(child: Text(vacio));
     return ListView.separated(
       itemCount: rows.length,
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (_, index) {
         final h = rows[index];
+        if (h.tipo == 'mantenimiento') {
+          final color = _colorSemaforo(h.semaforo);
+          final restante = h.diasRestantes == null
+              ? ''
+              : h.diasRestantes! <= 0
+                  ? 'vence hoy'
+                  : 'faltan ${h.diasRestantes} días';
+          return Card(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            color: color.withOpacity(.08),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: color.withOpacity(.75), width: h.semaforo == null ? 1 : 2),
+            ),
+            child: ListTile(
+              leading: Icon(Icons.build_circle_outlined, color: color),
+              title: Text(h.titulo, style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text([
+                'Inicio: ${h.fecha} ${h.hora}',
+                if (h.fechaProxima?.isNotEmpty == true) 'Próximo: ${h.fechaProxima} $restante',
+                if (h.dias != null) 'Frecuencia: ${h.dias} días',
+                if (h.statusManto?.isNotEmpty == true) 'Estatus: ${h.statusManto}',
+                if (h.tiempoMuerto?.isNotEmpty == true) 'Tiempo muerto: ${h.tiempoMuerto}',
+              ].join(' · ')),
+              onTap: () => _verBitacoraFormato(h),
+              trailing: Wrap(
+                spacing: 6,
+                children: [
+                  IconButton(
+                    tooltip: 'Ver formato',
+                    icon: const Icon(Icons.description_outlined),
+                    onPressed: () => _verBitacoraFormato(h),
+                  ),
+                  if (maquina != null && h.mantenimientoActivo)
+                    IconButton(
+                      tooltip: 'Cerrar mantenimiento',
+                      icon: const Icon(Icons.task_alt, color: Colors.green),
+                      onPressed: () => _cerrarMantenimientoDialog(maquina, h),
+                    ),
+                ],
+              ),
+            ),
+          );
+        }
         return ListTile(
           dense: true,
-          leading: Icon(
-            h.tipo == 'estado'
-                ? Icons.settings_suggest
-                : h.tipo == 'mantenimiento'
-                    ? Icons.build_circle_outlined
-                    : Icons.person,
-          ),
+          leading: Icon(h.tipo == 'estado' ? Icons.settings_suggest : Icons.person),
           title: Text(h.titulo, style: const TextStyle(fontWeight: FontWeight.bold)),
           subtitle: Text([
             '${h.fecha} ${h.hora}',
@@ -363,6 +424,95 @@ class _MolinosScreenState extends State<MolinosScreen> {
           ].join(' · ')),
         );
       },
+    );
+  }
+
+  Color _colorSemaforo(String? semaforo) {
+    switch ((semaforo ?? '').toLowerCase()) {
+      case 'rojo':
+        return Colors.red;
+      case 'amarillo':
+        return Colors.amber;
+      case 'verde':
+        return Colors.green;
+      default:
+        return Colors.blueGrey;
+    }
+  }
+
+  Future<void> _cerrarMantenimientoDialog(MaquinaMolinos maquina, MaquinaHistorialMolino bitacora) async {
+    String descripcion = '';
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Cerrar mantenimiento ${maquina.nombre}'),
+        content: TextField(
+          maxLines: 4,
+          onChanged: (value) => descripcion = value,
+          decoration: InputDecoration(
+            labelText: 'Descripción correctiva / término',
+            hintText: 'Qué se corrigió y cómo terminó el mantenimiento',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Cerrar mantenimiento')),
+        ],
+      ),
+    );
+    if (confirmar != true) return;
+    try {
+      final token = context.read<AuthService>().token!;
+      await MolinosService(token).cerrarMantenimiento(
+        maquinaId: maquina.id,
+        bitacoraId: bitacora.bitacoraId,
+        descripcionCorrec: _clean(descripcion),
+      );
+      await _load();
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      _ok('Mantenimiento cerrado. Se calculó el tiempo muerto.');
+    } catch (e) {
+      _showError(e);
+    }
+  }
+
+  void _verBitacoraFormato(MaquinaHistorialMolino h) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Bitácora ${h.numero ?? ''}'),
+        content: SizedBox(
+          width: 560,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _info('Mantenimiento', h.titulo),
+                _info('Fecha inicio', '${h.fecha} ${h.hora}'),
+                _info('Fecha próxima', h.fechaProxima ?? 'Sin fecha'),
+                _info('Días / frecuencia', h.dias == null ? 'Sin días' : '${h.dias} días'),
+                _info('Días restantes', h.diasRestantes == null ? 'Sin dato' : '${h.diasRestantes}'),
+                _info('Estatus', h.statusManto ?? 'Sin estatus'),
+                _info('Operador', h.operador ?? ''),
+                _info('Supervisor', h.supervisor ?? ''),
+                _info('Usuario', h.usuario ?? ''),
+                const Divider(height: 24),
+                const Text('Descripción preventiva', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(h.descripcionPreven?.isNotEmpty == true ? h.descripcionPreven! : 'Sin descripción preventiva'),
+                const SizedBox(height: 12),
+                const Text('Descripción correctiva', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(h.descripcionCorrec?.isNotEmpty == true ? h.descripcionCorrec! : 'Sin descripción correctiva'),
+                const Divider(height: 24),
+                _info('Fecha término', h.fechaTermino == null ? 'Abierto' : '${h.fechaTermino} ${h.horaTermino ?? ''}'),
+                _info('Tiempo muerto', h.tiempoMuerto ?? 'En curso'),
+              ],
+            ),
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar'))],
+      ),
     );
   }
 
@@ -1011,6 +1161,19 @@ class _MaquinaMolinoCard extends StatelessWidget {
     }
   }
 
+  Color _colorSemaforo(String? semaforo) {
+    switch ((semaforo ?? '').toLowerCase()) {
+      case 'rojo':
+        return Colors.red;
+      case 'amarillo':
+        return Colors.amber;
+      case 'verde':
+        return Colors.green;
+      default:
+        return Colors.blueGrey;
+    }
+  }
+
   String _duracionEstado(DateTime? inicio) {
     if (inicio == null) return '--:--:--';
     final diff = DateTime.now().difference(inicio);
@@ -1135,27 +1298,28 @@ class _MaquinaMolinoCard extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: maquina.mantenimientoAlerta ? Colors.orange.shade50 : Colors.grey.shade100,
+                    color: _colorSemaforo(maquina.mantenimientoSemaforo).withOpacity(.10),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: maquina.mantenimientoAlerta ? Colors.orange.shade300 : Colors.grey.shade300),
+                    border: Border.all(color: _colorSemaforo(maquina.mantenimientoSemaforo), width: maquina.mantenimientoAlerta ? 2 : 1),
                   ),
                   child: Row(
                     children: [
                       Icon(
                         maquina.mantenimientoAlerta ? Icons.notifications_active : Icons.notifications_none,
-                        color: maquina.mantenimientoAlerta ? Colors.deepOrange : Colors.grey.shade700,
+                        color: _colorSemaforo(maquina.mantenimientoSemaforo),
                         size: 18,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Próximo mantenimiento: ${maquina.mantenimientoFechaProxima}'
+                          '${maquina.mantenimientoDiasRestantes == null ? '' : ' · faltan ${maquina.mantenimientoDiasRestantes} días'}'
                           '${maquina.mantenimientoProximo == null ? '' : ' · ${maquina.mantenimientoProximo}'}',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: maquina.mantenimientoAlerta ? Colors.deepOrange : Colors.black87,
+                            color: _colorSemaforo(maquina.mantenimientoSemaforo),
                           ),
                         ),
                       ),

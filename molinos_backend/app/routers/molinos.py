@@ -31,6 +31,11 @@ class CambiarEstadoMaquinaIn(BaseModel):
     fecha_proxima: str | None = None
 
 
+class CerrarMantenimientoIn(BaseModel):
+    bitacora_id: int | None = None
+    descripcion_correc: str | None = None
+
+
 def _es_supervisor_o_encargado(puesto: str | None) -> bool:
     texto = (puesto or '').upper()
     return 'SUPERVISOR' in texto or 'ENCARGAD' in texto
@@ -152,11 +157,22 @@ def _dias_desde_tiempo_mant(tiempo_mant: str | None) -> int | None:
     return cantidad
 
 
-def _fecha_proxima_desde_tiempo(tiempo_mant: str | None) -> str | None:
-    dias = _dias_desde_tiempo_mant(tiempo_mant)
+def _fecha_proxima_desde_dias(dias: int | None) -> str | None:
     if dias is None:
         return None
     return (date.today() + timedelta(days=dias)).strftime('%Y-%m-%d')
+
+
+def _semaforo_mantenimiento_sql():
+    return """
+    CASE
+      WHEN b.fecha_proxima IS NULL THEN ''
+      WHEN DATEDIFF(b.fecha_proxima, CURDATE()) <= 1 THEN 'rojo'
+      WHEN DATEDIFF(b.fecha_proxima, CURDATE()) <= 5 THEN 'amarillo'
+      WHEN DATEDIFF(b.fecha_proxima, CURDATE()) <= 10 THEN 'verde'
+      ELSE ''
+    END
+    """
 
 
 @router.get('/mantenimientos')
@@ -354,7 +370,9 @@ def _insertar_bitacora_mantenimiento_tx(cur, maquina_id: int, data: CambiarEstad
     tiempo_mant = (mantenimiento_row or {}).get('tiempo_mant') if mantenimiento_row else None
     dias_catalogo = _dias_desde_tiempo_mant(tiempo_mant)
     dias = data.dias if data.dias is not None and data.dias >= 0 else dias_catalogo
-    fecha_proxima = data.fecha_proxima or _fecha_proxima_desde_tiempo(tiempo_mant)
+    # mantenimiento.tiempo_mant se convierte a número de días y se guarda en bitacoras.Dias.
+    # La tabla bitacoras NO tiene columna tiempo_mant.
+    fecha_proxima = data.fecha_proxima or _fecha_proxima_desde_dias(dias)
     mantenimiento = (
         (mantenimiento_row or {}).get('tipo_mant')
         or data.mantenimiento
@@ -382,14 +400,13 @@ def _insertar_bitacora_mantenimiento_tx(cur, maquina_id: int, data: CambiarEstad
             UPDATE bitacoras
             SET mantenimiento = %s,
                 mantenimiento_id = COALESCE(%s, mantenimiento_id),
-                tiempo_mant = COALESCE(%s, tiempo_mant),
                 descripcionPreven = COALESCE(NULLIF(%s, ''), descripcionPreven),
                 Dias = COALESCE(%s, Dias),
                 fecha_proxima = COALESCE(%s, fecha_proxima),
                 status_manto = 'MANTENIMIENTO'
             WHERE id = %s
             """,
-            (mantenimiento, mantenimiento_id, tiempo_mant, descripcion_preven, dias, fecha_proxima, existente['id']),
+            (mantenimiento, mantenimiento_id, descripcion_preven, dias, fecha_proxima, existente['id']),
         )
         return
 
@@ -397,18 +414,18 @@ def _insertar_bitacora_mantenimiento_tx(cur, maquina_id: int, data: CambiarEstad
         """
         INSERT INTO bitacoras(
             maquina, fecha_inicio, hora_inicio, mantenimiento, mantenimiento_id,
-            tiempo_mant, descripcionPreven, operador, Supervisor, usuario, numero,
+            descripcionPreven, operador, Supervisor, usuario, numero,
             fecha_proxima, Dias, area_id, status_manto
         )
         VALUES (
             %s, CURDATE(), CURTIME(), %s, %s,
-            %s, %s, %s, %s, %s, CONCAT('MANTO-', DATE_FORMAT(NOW(), '%%Y%%m%%d%%H%%i%%s')),
+            %s, %s, %s, %s, CONCAT('MANTO-', DATE_FORMAT(NOW(), '%%Y%%m%%d%%H%%i%%s')),
             %s, %s, %s, 'MANTENIMIENTO'
         )
         """,
         (
             maquina['nombre'], mantenimiento, mantenimiento_id,
-            tiempo_mant, descripcion_preven,
+            descripcion_preven,
             usuario_nombre, usuario_nombre, usuario_nombre,
             fecha_proxima, dias, maquina['id_area'] or 1,
         ),
@@ -450,12 +467,37 @@ def tablero(fecha_jornada: str, user=Depends(get_current_user)):
                  ORDER BY b.fecha_proxima ASC
                  LIMIT 1
                ) AS mantenimiento_proximo,
+               (
+                 SELECT DATEDIFF(b.fecha_proxima, CURDATE())
+                 FROM bitacoras b
+                 WHERE (UPPER(TRIM(b.maquina)) = UPPER(TRIM(m.nombre))
+                    OR UPPER(TRIM(b.maquina)) LIKE CONCAT('%%', UPPER(TRIM(m.nombre)), '%%'))
+                   AND b.fecha_proxima IS NOT NULL
+                   AND (b.status_manto IS NULL OR UPPER(b.status_manto) NOT IN ('TERMINO', 'TERMINADO', 'CERRADO'))
+                 ORDER BY b.fecha_proxima ASC
+                 LIMIT 1
+               ) AS mantenimiento_dias_restantes,
+               (
+                 SELECT CASE
+                   WHEN DATEDIFF(b.fecha_proxima, CURDATE()) <= 1 THEN 'rojo'
+                   WHEN DATEDIFF(b.fecha_proxima, CURDATE()) <= 5 THEN 'amarillo'
+                   WHEN DATEDIFF(b.fecha_proxima, CURDATE()) <= 10 THEN 'verde'
+                   ELSE ''
+                 END
+                 FROM bitacoras b
+                 WHERE (UPPER(TRIM(b.maquina)) = UPPER(TRIM(m.nombre))
+                    OR UPPER(TRIM(b.maquina)) LIKE CONCAT('%%', UPPER(TRIM(m.nombre)), '%%'))
+                   AND b.fecha_proxima IS NOT NULL
+                   AND (b.status_manto IS NULL OR UPPER(b.status_manto) NOT IN ('TERMINO', 'TERMINADO', 'CERRADO'))
+                 ORDER BY b.fecha_proxima ASC
+                 LIMIT 1
+               ) AS mantenimiento_semaforo,
                EXISTS(
                  SELECT 1 FROM bitacoras b
                  WHERE (UPPER(TRIM(b.maquina)) = UPPER(TRIM(m.nombre))
                     OR UPPER(TRIM(b.maquina)) LIKE CONCAT('%%', UPPER(TRIM(m.nombre)), '%%'))
                    AND b.fecha_proxima IS NOT NULL
-                   AND b.fecha_proxima BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 3 DAY)
+                   AND b.fecha_proxima BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 10 DAY)
                    AND (b.status_manto IS NULL OR UPPER(b.status_manto) NOT IN ('TERMINO', 'TERMINADO', 'CERRADO'))
                ) AS mantenimiento_alerta
         FROM maquinas m
@@ -762,6 +804,49 @@ def cambiar_estado(data: CambiarEstadoMaquinaIn, user=Depends(require_admin_or_s
     return {'message': 'Estado de máquina actualizado'}
 
 
+
+@router.post('/maquinas/{maquina_id}/mantenimiento/cerrar')
+def cerrar_mantenimiento_maquina(maquina_id: int, data: CerrarMantenimientoIn, user=Depends(require_admin_or_supervisor)):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            if data.bitacora_id:
+                cur.execute(
+                    """
+                    SELECT id, fecha_inicio, hora_inicio
+                    FROM bitacoras
+                    WHERE id = %s
+                    LIMIT 1
+                    """,
+                    (data.bitacora_id,),
+                )
+                bitacora = cur.fetchone()
+                if not bitacora:
+                    raise HTTPException(status_code=404, detail='Bitácora no encontrada')
+                cur.execute(
+                    """
+                    UPDATE bitacoras
+                    SET fecha_termino = CURDATE(),
+                        Hora_termino = CURTIME(),
+                        status_manto = 'TERMINO',
+                        descripcionCorrec = COALESCE(NULLIF(%s, ''), descripcionCorrec),
+                        tiempo_muerto = TIMEDIFF(CONCAT(CURDATE(), ' ', CURTIME()), CONCAT(fecha_inicio, ' ', hora_inicio))
+                    WHERE id = %s
+                    """,
+                    (data.descripcion_correc or '', data.bitacora_id),
+                )
+            else:
+                _cerrar_bitacora_mantenimiento_tx(cur, maquina_id, data.descripcion_correc)
+            _cambiar_estado_tx(cur, maquina_id, 'trabajando', 'Mantenimiento cerrado desde historial', user['id'])
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+    return {'message': 'Mantenimiento cerrado'}
+
+
 @router.get('/maquinas/{maquina_id}/historial')
 def historial_maquina(maquina_id: int, fecha_jornada: str, turno: str | None = None, user=Depends(get_current_user)):
     catalogo_turnos = _turnos_catalogo()
@@ -817,6 +902,7 @@ def historial_maquina(maquina_id: int, fecha_jornada: str, turno: str | None = N
     mantenimientos = fetch_all(
         """
         SELECT 'mantenimiento' AS tipo,
+               b.id AS bitacora_id,
                DATE_FORMAT(b.fecha_inicio, '%%Y-%%m-%%d') AS fecha,
                TIME_FORMAT(b.hora_inicio, '%%H:%%i') AS hora,
                COALESCE(b.mantenimiento, 'Mantenimiento') AS titulo,
@@ -826,12 +912,31 @@ def historial_maquina(maquina_id: int, fecha_jornada: str, turno: str | None = N
                CONCAT(
                  'Preventivo: ', IFNULL(b.descripcionPreven, ''),
                  ' / Correctivo: ', IFNULL(b.descripcionCorrec, ''),
-                 IF(b.Dias IS NULL, '', CONCAT(' / Días: ', b.Dias)),
-                 IF(b.tiempo_mant IS NULL OR b.tiempo_mant = '', '', CONCAT(' / Frecuencia: ', b.tiempo_mant)),
+                 IF(b.Dias IS NULL, '', CONCAT(' / Frecuencia días: ', b.Dias)),
                  IF(b.fecha_proxima IS NULL, '', CONCAT(' / Próximo: ', DATE_FORMAT(b.fecha_proxima, '%%Y-%%m-%%d'))),
                  IF(b.fecha_termino IS NULL, '', CONCAT(' / Termina: ', DATE_FORMAT(b.fecha_termino, '%%Y-%%m-%%d'), ' ', IFNULL(TIME_FORMAT(b.Hora_termino, '%%H:%%i'), ''))),
                  IF(b.tiempo_muerto IS NULL, '', CONCAT(' / Tiempo muerto: ', TIME_FORMAT(b.tiempo_muerto, '%%H:%%i')))
                ) AS observaciones,
+               b.descripcionPreven AS descripcion_preven,
+               b.descripcionCorrec AS descripcion_correc,
+               b.operador,
+               b.Supervisor AS supervisor,
+               b.usuario,
+               b.numero,
+               DATE_FORMAT(b.fecha_proxima, '%%Y-%%m-%%d') AS fecha_proxima,
+               DATE_FORMAT(b.fecha_termino, '%%Y-%%m-%%d') AS fecha_termino,
+               TIME_FORMAT(b.Hora_termino, '%%H:%%i') AS hora_termino,
+               TIME_FORMAT(b.tiempo_muerto, '%%H:%%i') AS tiempo_muerto,
+               b.Dias AS dias,
+               b.status_manto,
+               DATEDIFF(b.fecha_proxima, CURDATE()) AS dias_restantes,
+               CASE
+                 WHEN b.fecha_proxima IS NULL THEN ''
+                 WHEN DATEDIFF(b.fecha_proxima, CURDATE()) <= 1 THEN 'rojo'
+                 WHEN DATEDIFF(b.fecha_proxima, CURDATE()) <= 5 THEN 'amarillo'
+                 WHEN DATEDIFF(b.fecha_proxima, CURDATE()) <= 10 THEN 'verde'
+                 ELSE ''
+               END AS semaforo,
                '' AS turno
         FROM bitacoras b
         INNER JOIN maquinas m ON m.id = %s
