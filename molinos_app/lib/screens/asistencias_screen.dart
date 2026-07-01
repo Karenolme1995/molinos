@@ -1,8 +1,6 @@
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
-
 import 'dart:async';
 import 'dart:convert';
+import 'dart:html' as html;
 
 import 'package:flutter/material.dart';
 
@@ -24,17 +22,20 @@ class AsistenciasScreen extends StatefulWidget {
 class _AsistenciasScreenState extends State<AsistenciasScreen> {
   late final AsistenciasService _service;
 
+  final TextEditingController _buscarController = TextEditingController();
+  Timer? _buscarDebounce;
+
   bool _loading = true;
-  bool _checando = false;
   bool _exportando = false;
   String? _error;
-
-  Timer? _timer;
-  DateTime _horaMexico = DateTime.now();
 
   DateTime _fecha = DateTime.now();
   int _mes = DateTime.now().month;
   int _anio = DateTime.now().year;
+
+  String _q = '';
+  int _pagina = 0;
+  int _filasPorPagina = 25;
 
   List<dynamic> _presentes = [];
   List<dynamic> _ausentes = [];
@@ -43,8 +44,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
   List<dynamic> _acotaciones = [];
   List<dynamic> _castigos = [];
 
-  Map<String, dynamic>? _empleadoSeleccionado;
-  Map<String, dynamic>? _estadoChecador;
+  final List<int> _opcionesFilas = const [10, 25, 50, 100];
 
   final List<String> _meses = const [
     'Enero',
@@ -65,37 +65,26 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
   void initState() {
     super.initState();
     _service = AsistenciasService(getToken: widget.getToken);
-    _iniciarHora();
+
+    _buscarController.addListener(() {
+      _buscarDebounce?.cancel();
+      _buscarDebounce = Timer(const Duration(milliseconds: 250), () {
+        if (!mounted) return;
+        setState(() {
+          _q = _buscarController.text.trim().toLowerCase();
+          _pagina = 0;
+        });
+      });
+    });
+
     _cargarTodo();
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _buscarDebounce?.cancel();
+    _buscarController.dispose();
     super.dispose();
-  }
-
-  Future<void> _iniciarHora() async {
-    try {
-      final data = await _service.getHoraMexico();
-      final fecha = data['fecha']?.toString();
-      final hora = data['hora']?.toString();
-
-      if (fecha != null && hora != null) {
-        _horaMexico = DateTime.parse('${fecha}T$hora');
-      }
-    } catch (_) {
-      _horaMexico = DateTime.now();
-    }
-
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-
-      setState(() {
-        _horaMexico = _horaMexico.add(const Duration(seconds: 1));
-      });
-    });
   }
 
   Future<void> _cargarTodo() async {
@@ -135,6 +124,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
         _empleadosMatriz = List<dynamic>.from(matriz['empleados'] ?? []);
         _acotaciones = acotaciones;
         _castigos = List<dynamic>.from(castigos['empleados'] ?? []);
+        _pagina = 0;
         _loading = false;
       });
     } catch (e) {
@@ -153,16 +143,57 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
         '${fecha.year}';
   }
 
-  String _fechaIso(DateTime fecha) {
-    return '${fecha.year.toString().padLeft(4, '0')}-'
-        '${fecha.month.toString().padLeft(2, '0')}-'
-        '${fecha.day.toString().padLeft(2, '0')}';
+  String _fechaCortaDia(int dia) {
+    final fecha = DateTime(_anio, _mes, dia);
+    final yy = fecha.year.toString().substring(2);
+    return '${fecha.day.toString().padLeft(2, '0')}/'
+        '${fecha.month.toString().padLeft(2, '0')}/'
+        '$yy';
   }
 
-  String _horaTexto(DateTime fecha) {
-    return '${fecha.hour.toString().padLeft(2, '0')}:'
-        '${fecha.minute.toString().padLeft(2, '0')}:'
-        '${fecha.second.toString().padLeft(2, '0')}';
+  int _diasDelMes() {
+    return DateUtils.getDaysInMonth(_anio, _mes);
+  }
+
+  Future<void> _seleccionarFecha() async {
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _fecha,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+
+    if (selected == null) return;
+
+    setState(() {
+      _fecha = selected;
+      _mes = selected.month;
+      _anio = selected.year;
+      _pagina = 0;
+    });
+
+    await _cargarTodo();
+  }
+
+  Future<void> _cambiarMesAnio({
+    int? mes,
+    int? anio,
+  }) async {
+    final nuevoMes = mes ?? _mes;
+    final nuevoAnio = anio ?? _anio;
+
+    setState(() {
+      _mes = nuevoMes;
+      _anio = nuevoAnio;
+
+      final maxDias = DateUtils.getDaysInMonth(nuevoAnio, nuevoMes);
+      final diaSeguro = _fecha.day > maxDias ? maxDias : _fecha.day;
+
+      _fecha = DateTime(nuevoAnio, nuevoMes, diaSeguro);
+      _pagina = 0;
+    });
+
+    await _cargarTodo();
   }
 
   Color _colorAcotacion(String? clave) {
@@ -170,11 +201,10 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
       case 'I':
         return Colors.purple;
       case 'NR':
+      case 'F':
         return Colors.red;
       case 'FJ':
         return Colors.blue;
-      case 'F':
-        return Colors.red;
       case 'V':
         return Colors.cyan;
       case 'NL':
@@ -193,11 +223,10 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
       case 'I':
         return Colors.purple.shade100;
       case 'NR':
+      case 'F':
         return Colors.red.shade100;
       case 'FJ':
         return Colors.blue.shade100;
-      case 'F':
-        return Colors.red.shade100;
       case 'V':
         return Colors.cyan.shade100;
       case 'NL':
@@ -226,7 +255,6 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
       case 'A':
         return '✓';
       case 'ENT':
-        return '✕';
       case 'F':
         return '✕';
       default:
@@ -257,131 +285,54 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
     }
   }
 
-  int _diasDelMes() {
-    return DateUtils.getDaysInMonth(_anio, _mes);
+  List<Map<String, dynamic>> get _empleadosFiltrados {
+    final lista = _empleadosMatriz
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+
+    if (_q.isEmpty) return lista;
+
+    return lista.where((emp) {
+      final nomina = (emp['numero_nomina'] ?? emp['nomina'] ?? '').toString();
+      final nombre = (emp['nombre'] ?? '').toString();
+      final puesto = (emp['puesto'] ?? '').toString();
+
+      final texto = '$nomina $nombre $puesto'.toLowerCase();
+      return texto.contains(_q);
+    }).toList();
   }
 
-  Future<void> _seleccionarFecha() async {
-    final selected = await showDatePicker(
-      context: context,
-      initialDate: _fecha,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-    );
+  List<Map<String, dynamic>> get _empleadosPagina {
+    final filtrados = _empleadosFiltrados;
+    if (filtrados.isEmpty) return [];
 
-    if (selected == null) return;
+    var inicio = _pagina * _filasPorPagina;
+    if (inicio < 0) inicio = 0;
+    if (inicio > filtrados.length) inicio = filtrados.length;
 
-    setState(() {
-      _fecha = selected;
-      _mes = selected.month;
-      _anio = selected.year;
-    });
+    var fin = inicio + _filasPorPagina;
+    if (fin > filtrados.length) fin = filtrados.length;
 
-    await _cargarTodo();
+    return filtrados.sublist(inicio, fin);
   }
 
-  Future<void> _cambiarMesAnio({
-    int? mes,
-    int? anio,
-  }) async {
-    final nuevoMes = mes ?? _mes;
-    final nuevoAnio = anio ?? _anio;
-
-    setState(() {
-      _mes = nuevoMes;
-      _anio = nuevoAnio;
-
-      final diaSeguro = _fecha.day.clamp(
-        1,
-        DateUtils.getDaysInMonth(nuevoAnio, nuevoMes),
-      );
-
-      _fecha = DateTime(nuevoAnio, nuevoMes, diaSeguro);
-    });
-
-    await _cargarTodo();
+  int get _totalPaginas {
+    final total = _empleadosFiltrados.length;
+    if (total == 0) return 1;
+    return (total / _filasPorPagina).ceil();
   }
 
-  Future<void> _seleccionarEmpleado(Map<String, dynamic> emp) async {
-    final empleadoId = emp['empleado_id'] ?? emp['id'];
-
-    if (empleadoId == null) return;
-
-    try {
-      final estado = await _service.getEstadoChecador(
-        empleadoId: int.parse(empleadoId.toString()),
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        _empleadoSeleccionado = emp;
-        _estadoChecador = estado;
-      });
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-      );
-    }
+  int get _inicioVista {
+    final total = _empleadosFiltrados.length;
+    if (total == 0) return 0;
+    return (_pagina * _filasPorPagina) + 1;
   }
 
-  Future<void> _checarEmpleado() async {
-    final emp = _empleadoSeleccionado;
-
-    if (emp == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona un empleado primero')),
-      );
-      return;
-    }
-
-    final empleadoId = emp['empleado_id'] ?? emp['id'];
-
-    if (empleadoId == null) return;
-
-    setState(() {
-      _checando = true;
-    });
-
-    try {
-      final id = int.parse(empleadoId.toString());
-
-      final result = await _service.checar(
-        empleadoId: id,
-      );
-
-      final estado = await _service.getEstadoChecador(
-        empleadoId: id,
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        _estadoChecador = estado;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result['message']?.toString() ?? 'Checada registrada'),
-        ),
-      );
-
-      await _cargarTodo();
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-      );
-    } finally {
-      if (!mounted) return;
-
-      setState(() {
-        _checando = false;
-      });
-    }
+  int get _finVista {
+    final total = _empleadosFiltrados.length;
+    if (total == 0) return 0;
+    final fin = (_pagina * _filasPorPagina) + _filasPorPagina;
+    return fin > total ? total : fin;
   }
 
   Future<void> _mostrarDetalleEmpleado(Map<String, dynamic> emp) async {
@@ -424,7 +375,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _info('Nómina', emp['numero_nomina']),
+                  _info('Nómina', emp['numero_nomina'] ?? emp['nomina']),
                   _info('Puesto', emp['puesto']),
                   _info('Departamento', emp['departamento']),
                   _info('Turno', emp['turno']),
@@ -556,7 +507,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
 
                           try {
                             await _service.registrarAcotacion(
-                              empleadoId: emp['empleado_id'],
+                              empleadoId: emp['empleado_id'] ?? emp['id'],
                               clave: claveSeleccionada!,
                               fecha: _fecha,
                               observaciones: observacionesController.text,
@@ -601,159 +552,16 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
     );
   }
 
-  Widget _checadorPanel() {
-    final emp = _empleadoSeleccionado;
-    final estado = _estadoChecador;
-    final checadas = List<dynamic>.from(estado?['checadas'] ?? []);
-    final tiempoExtra = Map<String, dynamic>.from(estado?['tiempo_extra'] ?? {});
-    final siguienteLabel =
-        estado?['siguiente_label']?.toString() ?? 'Selecciona empleado';
-
-    return Card(
-      elevation: 1,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final small = constraints.maxWidth < 850;
-
-            final reloj = Container(
-              width: small ? double.infinity : 280,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.black87,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'Hora México',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _horaTexto(_horaMexico),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 38,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _fechaTexto(_horaMexico),
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                ],
-              ),
-            );
-
-            final detalle = Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Checador',
-                    style: TextStyle(
-                      fontSize: 21,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    emp == null
-                        ? 'Selecciona un empleado de las listas para checar.'
-                        : '${emp['nombre'] ?? '-'}',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  Chip(
-                    label: Text('Siguiente: $siguienteLabel'),
-                    avatar: const Icon(Icons.touch_app, size: 18),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: checadas.map((c) {
-                      return Chip(
-                        label: Text(
-                          '${c['tipo_label'] ?? c['tipo']}: ${c['hora'] ?? '-'}',
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Tiempo extra: ${tiempoExtra['tiempo_extra'] ?? '00:00:00'}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: tiempoExtra['tiempo_extra_pagable'] == true
-                          ? Colors.green
-                          : Colors.black87,
-                    ),
-                  ),
-                  Text(
-                    tiempoExtra['mensaje']?.toString() ??
-                        'Solo se paga si pasa de 30 minutos.',
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: _checando ? null : _checarEmpleado,
-                    icon: _checando
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.fingerprint),
-                    label: Text(_checando ? 'Checando...' : 'Checar ahora'),
-                  ),
-                ],
-              ),
-            );
-
-            if (small) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  reloj,
-                  const SizedBox(height: 16),
-                  detalle,
-                ],
-              );
-            }
-
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                reloj,
-                const SizedBox(width: 18),
-                detalle,
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
   Widget _empleadoCard(
     Map<String, dynamic> emp, {
     required bool alerta,
   }) {
     final acotacion = emp['acotacion']?.toString();
-    final seleccionado = _empleadoSeleccionado != null &&
-        (_empleadoSeleccionado!['empleado_id'] ?? _empleadoSeleccionado!['id'])
-                ?.toString() ==
-            (emp['empleado_id'] ?? emp['id'])?.toString();
 
     return Card(
-      elevation: seleccionado ? 3 : 1,
-      color: seleccionado ? Colors.blue.shade50 : null,
+      elevation: 1,
       child: ListTile(
-        onTap: () => _seleccionarEmpleado(emp),
+        onTap: () => _mostrarDetalleEmpleado(emp),
         leading: CircleAvatar(
           backgroundColor: acotacion != null
               ? _colorAcotacion(acotacion)
@@ -779,14 +587,10 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Text(
-          'Nómina: ${emp['numero_nomina'] ?? '-'} | ${emp['puesto'] ?? '-'}',
+          'Nómina: ${emp['numero_nomina'] ?? emp['nomina'] ?? '-'} | ${emp['puesto'] ?? '-'}',
         ),
         trailing: PopupMenuButton<String>(
           onSelected: (value) {
-            if (value == 'seleccionar') {
-              _seleccionarEmpleado(emp);
-            }
-
             if (value == 'detalle') {
               _mostrarDetalleEmpleado(emp);
             }
@@ -796,10 +600,6 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
             }
           },
           itemBuilder: (_) => const [
-            PopupMenuItem(
-              value: 'seleccionar',
-              child: Text('Usar en checador'),
-            ),
             PopupMenuItem(
               value: 'detalle',
               child: Text('Ver detalle'),
@@ -815,44 +615,63 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
   }
 
   Widget _resumenCards() {
-    return Row(
-      children: [
-        Expanded(
-          child: _contadorCard(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmall = constraints.maxWidth < 850;
+
+        final cards = [
+          _contadorCard(
             titulo: 'Presentes',
             valor: _presentes.length.toString(),
             color: Colors.green,
             icon: Icons.check_circle,
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _contadorCard(
+          _contadorCard(
             titulo: 'Ausentes',
             valor: _ausentes.length.toString(),
             color: Colors.red,
             icon: Icons.warning,
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _contadorCard(
+          _contadorCard(
             titulo: 'Castigos',
             valor: _castigos.length.toString(),
             color: Colors.deepOrange,
             icon: Icons.gavel,
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _contadorCard(
+          _contadorCard(
             titulo: 'Acotaciones',
             valor: _conAcotacion.length.toString(),
             color: Colors.orange,
             icon: Icons.info,
           ),
-        ),
-      ],
+        ];
+
+        if (isSmall) {
+          return Column(
+            children: [
+              cards[0],
+              const SizedBox(height: 10),
+              cards[1],
+              const SizedBox(height: 10),
+              cards[2],
+              const SizedBox(height: 10),
+              cards[3],
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: cards[0]),
+            const SizedBox(width: 12),
+            Expanded(child: cards[1]),
+            const SizedBox(width: 12),
+            Expanded(child: cards[2]),
+            const SizedBox(width: 12),
+            Expanded(child: cards[3]),
+          ],
+        );
+      },
     );
   }
 
@@ -972,7 +791,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
     return Card(
       elevation: 1,
       child: Container(
-        height: 360,
+        height: 330,
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [
@@ -989,6 +808,10 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
                       fontSize: 16,
                     ),
                   ),
+                ),
+                Text(
+                  empleados.length.toString(),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -1018,7 +841,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
     return Tooltip(
       message: _tooltipValorDia(valor),
       child: Container(
-        width: 38,
+        width: 42,
         height: 30,
         alignment: Alignment.center,
         decoration: BoxDecoration(
@@ -1042,6 +865,17 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
 
   Widget _matrizAsistencia() {
     final diasMes = _diasDelMes();
+    final filtrados = _empleadosFiltrados;
+    final pagina = _empleadosPagina;
+
+    if (_pagina >= _totalPaginas && _pagina > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _pagina = _totalPaginas - 1;
+        });
+      });
+    }
 
     return Card(
       elevation: 1,
@@ -1050,93 +884,210 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                const Text(
-                  'Matriz mensual de asistencia',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Chip(
-                  avatar: const Icon(Icons.calendar_month, size: 18),
-                  label: Text('${_meses[_mes - 1]} $_anio'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: _exportando ? null : _exportarExcel,
-                  icon: _exportando
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.download),
-                  label: Text(_exportando ? 'Exportando...' : 'Exportar Excel'),
-                ),
-              ],
-            ),
+            _toolbarMatriz(filtrados.length),
             const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowHeight: 42,
-                dataRowMinHeight: 38,
-                dataRowMaxHeight: 46,
-                columns: [
-                  const DataColumn(label: Text('Nómina')),
-                  const DataColumn(label: Text('Nombre')),
-                  const DataColumn(label: Text('Puesto')),
-                  for (int d = 1; d <= diasMes; d++)
-                    DataColumn(
-                      label: Text(
-                        d.toString(),
-                        style: const TextStyle(fontSize: 12),
+            if (filtrados.isEmpty)
+              const SizedBox(
+                height: 180,
+                child: Center(
+                  child: Text('No se encontraron empleados'),
+                ),
+              )
+            else
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  headingRowHeight: 44,
+                  dataRowMinHeight: 38,
+                  dataRowMaxHeight: 44,
+                  columnSpacing: 14,
+                  horizontalMargin: 12,
+                  columns: [
+                    const DataColumn(label: Text('Nómina')),
+                    const DataColumn(label: Text('Nombre')),
+                    const DataColumn(label: Text('Puesto')),
+                    for (int d = 1; d <= diasMes; d++)
+                      DataColumn(
+                        label: Text(
+                          _fechaCortaDia(d),
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       ),
-                    ),
-                ],
-                rows: _empleadosMatriz.map((empRaw) {
-                  final emp = Map<String, dynamic>.from(empRaw);
-                  final dias = Map<String, dynamic>.from(emp['dias'] ?? {});
+                  ],
+                  rows: pagina.map((emp) {
+                    final dias = Map<String, dynamic>.from(emp['dias'] ?? {});
 
-                  return DataRow(
-                    cells: [
-                      DataCell(
-                        Text(emp['numero_nomina']?.toString() ?? ''),
-                      ),
-                      DataCell(
-                        SizedBox(
-                          width: 180,
-                          child: Text(
-                            emp['nombre']?.toString() ?? '',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                      DataCell(
-                        SizedBox(
-                          width: 140,
-                          child: Text(
-                            emp['puesto']?.toString() ?? '',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                      for (int d = 1; d <= diasMes; d++)
+                    return DataRow(
+                      cells: [
                         DataCell(
-                          _celdaDia(dias[d.toString()]?.toString()),
+                          Text(
+                            (emp['numero_nomina'] ?? emp['nomina'] ?? '')
+                                .toString(),
+                          ),
                         ),
-                    ],
-                  );
-                }).toList(),
+                        DataCell(
+                          SizedBox(
+                            width: 220,
+                            child: Text(
+                              emp['nombre']?.toString() ?? '',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          SizedBox(
+                            width: 150,
+                            child: Text(
+                              emp['puesto']?.toString() ?? '',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        for (int d = 1; d <= diasMes; d++)
+                          DataCell(
+                            _celdaDia(dias[d.toString()]?.toString()),
+                          ),
+                      ],
+                    );
+                  }).toList(),
+                ),
               ),
-            ),
+            const SizedBox(height: 10),
+            _paginacionMatriz(filtrados.length),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _toolbarMatriz(int totalFiltrado) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        const Text(
+          'Matriz mensual de asistencia',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Chip(
+          avatar: const Icon(Icons.calendar_month, size: 18),
+          label: Text('${_meses[_mes - 1]} $_anio'),
+        ),
+        SizedBox(
+          width: 320,
+          child: TextField(
+            controller: _buscarController,
+            decoration: InputDecoration(
+              labelText: 'Buscar nómina, nombre o puesto',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _buscarController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Limpiar búsqueda',
+                      onPressed: () {
+                        _buscarController.clear();
+                      },
+                      icon: const Icon(Icons.close),
+                    ),
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+        ),
+        Chip(
+          label: Text('$totalFiltrado de ${_empleadosMatriz.length} empleados'),
+        ),
+        OutlinedButton.icon(
+          onPressed: _exportando ? null : _exportarExcel,
+          icon: _exportando
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.download),
+          label: Text(_exportando ? 'Exportando...' : 'Exportar Excel'),
+        ),
+      ],
+    );
+  }
+
+  Widget _paginacionMatriz(int totalFiltrado) {
+    return Row(
+      children: [
+        Text(
+          'Mostrando $_inicioVista-$_finVista de $totalFiltrado',
+          style: const TextStyle(color: Colors.black54),
+        ),
+        const Spacer(),
+        const Text('Filas:'),
+        const SizedBox(width: 8),
+        DropdownButton<int>(
+          value: _filasPorPagina,
+          items: _opcionesFilas.map((value) {
+            return DropdownMenuItem<int>(
+              value: value,
+              child: Text(value.toString()),
+            );
+          }).toList(),
+          onChanged: (value) {
+            if (value == null) return;
+            setState(() {
+              _filasPorPagina = value;
+              _pagina = 0;
+            });
+          },
+        ),
+        IconButton(
+          tooltip: 'Primera página',
+          onPressed: _pagina <= 0
+              ? null
+              : () {
+                  setState(() {
+                    _pagina = 0;
+                  });
+                },
+          icon: const Icon(Icons.first_page),
+        ),
+        IconButton(
+          tooltip: 'Página anterior',
+          onPressed: _pagina <= 0
+              ? null
+              : () {
+                  setState(() {
+                    _pagina--;
+                  });
+                },
+          icon: const Icon(Icons.chevron_left),
+        ),
+        Text('Página ${_pagina + 1} de $_totalPaginas'),
+        IconButton(
+          tooltip: 'Página siguiente',
+          onPressed: _pagina >= _totalPaginas - 1
+              ? null
+              : () {
+                  setState(() {
+                    _pagina++;
+                  });
+                },
+          icon: const Icon(Icons.chevron_right),
+        ),
+        IconButton(
+          tooltip: 'Última página',
+          onPressed: _pagina >= _totalPaginas - 1
+              ? null
+              : () {
+                  setState(() {
+                    _pagina = _totalPaginas - 1;
+                  });
+                },
+          icon: const Icon(Icons.last_page),
+        ),
+      ],
     );
   }
 
@@ -1181,7 +1132,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
       children: [
         const Icon(Icons.fact_check, size: 30),
         const Text(
-          'Asistencias y Checador - Molinos',
+          'Asistencias - Molinos',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
@@ -1256,7 +1207,9 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
   }
 
   Future<void> _exportarExcel() async {
-    if (_empleadosMatriz.isEmpty) {
+    final empleados = _empleadosFiltrados;
+
+    if (empleados.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No hay datos para exportar')),
       );
@@ -1275,15 +1228,14 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
         'Nómina',
         'Nombre',
         'Puesto',
-        for (int d = 1; d <= diasMes; d++) d.toString(),
+        for (int d = 1; d <= diasMes; d++) _fechaCortaDia(d),
       ]);
 
-      for (final empRaw in _empleadosMatriz) {
-        final emp = Map<String, dynamic>.from(empRaw);
+      for (final emp in empleados) {
         final dias = Map<String, dynamic>.from(emp['dias'] ?? {});
 
         rows.add([
-          emp['numero_nomina'] ?? '',
+          emp['numero_nomina'] ?? emp['nomina'] ?? '',
           emp['nombre'] ?? '',
           emp['puesto'] ?? '',
           for (int d = 1; d <= diasMes; d++)
@@ -1380,8 +1332,6 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
                 _header(),
                 const SizedBox(height: 16),
                 _resumenCards(),
-                const SizedBox(height: 16),
-                _checadorPanel(),
                 const SizedBox(height: 16),
                 _listasAsistencia(),
                 const SizedBox(height: 16),
