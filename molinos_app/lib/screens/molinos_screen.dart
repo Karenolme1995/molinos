@@ -411,6 +411,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       );
       final rows = List<MaquinaHistorialMolino>.from(data['historial'] as List);
       final conteos = Map<String, dynamic>.from(data['conteos'] ?? {});
+      final fichaTecnica = Map<String, dynamic>.from(data['ficha_tecnica'] ?? {});
       if (!mounted) return;
 
       final historial = rows.where((h) => h.tipo != 'mantenimiento').toList();
@@ -459,7 +460,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
                       children: [
                         _historialList(historial, vacio: 'Sin historial para esta vista y turno.', maquina: maquina),
                         _historialList(mantenimientos, vacio: 'Sin mantenimientos registrados para este molino.', maquina: maquina),
-                        _fichaTecnicaMaquina(maquina),
+                        _fichaTecnicaMaquina(maquina, fichaTecnica),
                         _personasAsignadasPorTurno(asignaciones),
                       ],
                     ),
@@ -543,7 +544,32 @@ class _MolinosScreenState extends State<MolinosScreen> {
   }
 
 
-  Widget _fichaTecnicaMaquina(MaquinaMolinos maquina) {
+  Widget _fichaTecnicaMaquina(MaquinaMolinos maquina, Map<String, dynamic> ficha) {
+    final rows = <MapEntry<String, String>>[
+      MapEntry('Máquina', (ficha['nombre'] ?? maquina.nombre).toString()),
+      MapEntry('Área', (ficha['area'] ?? 'MOLINOS').toString()),
+      MapEntry('Descripción', (ficha['descripcion'] ?? maquina.descripcion ?? 'Sin descripción').toString()),
+      MapEntry('Código interno', (ficha['codigo'] ?? 'Sin capturar').toString()),
+      MapEntry('Marca', (ficha['marca'] ?? 'Sin capturar').toString()),
+      MapEntry('Modelo', (ficha['modelo'] ?? 'Sin capturar').toString()),
+      MapEntry('Serie', (ficha['serie'] ?? 'Sin capturar').toString()),
+      MapEntry('Ubicación', (ficha['ubicacion'] ?? 'Sin capturar').toString()),
+      MapEntry('Capacidad', (ficha['capacidad'] ?? 'Sin capturar').toString()),
+      MapEntry('Voltaje', (ficha['voltaje'] ?? 'Sin capturar').toString()),
+      MapEntry('Potencia', (ficha['potencia'] ?? 'Sin capturar').toString()),
+      MapEntry('Proveedor', (ficha['proveedor'] ?? 'Sin capturar').toString()),
+      MapEntry('Fecha instalación', (ficha['fecha_instalacion'] ?? 'Sin capturar').toString()),
+      MapEntry('Fecha alta', (ficha['fecha_alta'] ?? 'Sin dato').toString()),
+      MapEntry('Última actualización', (ficha['actualizado'] ?? 'Sin dato').toString()),
+      MapEntry('Estado actual', maquina.estadoNombre),
+      MapEntry('Inicio estado', '${maquina.estadoFechaInicio ?? '-'} ${maquina.estadoHoraInicio ?? ''}'.trim()),
+      MapEntry('Observaciones estado', maquina.estadoObservaciones ?? 'Sin observaciones'),
+      MapEntry('Próximo mantenimiento', maquina.mantenimientoProximo ?? 'Sin mantenimiento próximo'),
+      MapEntry('Fecha próxima', maquina.mantenimientoFechaProxima ?? 'Sin fecha'),
+      MapEntry('Días restantes', maquina.mantenimientoDiasRestantes == null ? 'Sin dato' : '${maquina.mantenimientoDiasRestantes}'),
+      MapEntry('Notas', (ficha['notas'] ?? 'Sin notas').toString()),
+    ];
+
     return ListView(
       padding: const EdgeInsets.all(8),
       children: [
@@ -553,22 +579,43 @@ class _MolinosScreenState extends State<MolinosScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(maquina.nombre, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 10),
-                _info('Descripción', maquina.descripcion ?? 'Sin descripción'),
-                _info('Estado actual', maquina.estadoNombre),
-                _info('Color estado', maquina.estadoColor),
-                _info('Fecha inicio estado', maquina.estadoFechaInicio ?? 'Sin fecha'),
-                _info('Hora inicio estado', maquina.estadoHoraInicio ?? 'Sin hora'),
-                _info('Observaciones', maquina.estadoObservaciones ?? 'Sin observaciones'),
-                const Divider(height: 24),
-                _info('Próximo mantenimiento', maquina.mantenimientoProximo ?? 'Sin mantenimiento próximo'),
-                _info('Fecha próxima', maquina.mantenimientoFechaProxima ?? 'Sin fecha'),
-                _info(
-                  'Días restantes',
-                  maquina.mantenimientoDiasRestantes == null ? 'Sin dato' : '${maquina.mantenimientoDiasRestantes}',
+                Row(
+                  children: [
+                    const Icon(Icons.precision_manufacturing_outlined),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Ficha técnica de ${maquina.nombre}',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
                 ),
-                _info('Semáforo', maquina.mantenimientoSemaforo ?? 'Sin semáforo'),
+                const SizedBox(height: 12),
+                Table(
+                  columnWidths: const {0: FixedColumnWidth(170), 1: FlexColumnWidth()},
+                  border: TableBorder.all(color: Colors.black12),
+                  children: rows.map((r) {
+                    return TableRow(
+                      children: [
+                        Container(
+                          color: Colors.grey.shade100,
+                          padding: const EdgeInsets.all(9),
+                          child: Text(r.key, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(9),
+                          child: Text(r.value.isEmpty ? '-' : r.value),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Para editar estos datos llena la tabla maquina_ficha_tecnica. Si no hay datos, se muestra la información básica de maquinas.',
+                  style: TextStyle(color: Colors.black54, fontSize: 12),
+                ),
               ],
             ),
           ),
@@ -576,6 +623,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       ],
     );
   }
+
 
   Widget _personasAsignadasPorTurno(List<MaquinaHistorialMolino> asignaciones) {
     if (asignaciones.isEmpty) {

@@ -446,6 +446,67 @@ def _turnos_programados_por_rotacion(fecha_jornada: str) -> dict[int, dict]:
     return programados
 
 
+
+def _ficha_tecnica_maquina(maquina_id: int) -> dict:
+    """Regresa ficha técnica de máquina si existe la tabla nueva."""
+    maquina = fetch_one(
+        """
+        SELECT m.id, m.nombre, m.descripcion, m.id_area, a.nombre AS area, m.activo,
+               DATE_FORMAT(m.created_at, '%%Y-%%m-%%d') AS fecha_alta
+        FROM maquinas m
+        LEFT JOIN areas a ON a.id = m.id_area
+        WHERE m.id = %s
+        LIMIT 1
+        """,
+        (maquina_id,),
+    ) or {}
+
+    existe = fetch_one(
+        """
+        SELECT COUNT(*) AS total
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE()
+          AND table_name = 'maquina_ficha_tecnica'
+        """
+    )
+    ficha = {}
+    if existe and int(existe.get('total') or 0) > 0:
+        ficha = fetch_one(
+            """
+            SELECT id, maquina_id, codigo, marca, modelo, serie, ubicacion,
+                   capacidad, voltaje, potencia, proveedor,
+                   DATE_FORMAT(fecha_instalacion, '%%Y-%%m-%%d') AS fecha_instalacion,
+                   notas,
+                   DATE_FORMAT(updated_at, '%%Y-%%m-%%d %%H:%%i') AS actualizado
+            FROM maquina_ficha_tecnica
+            WHERE maquina_id = %s
+            LIMIT 1
+            """,
+            (maquina_id,),
+        ) or {}
+
+    return {
+        'id': maquina.get('id'),
+        'nombre': maquina.get('nombre'),
+        'descripcion': maquina.get('descripcion'),
+        'area': maquina.get('area'),
+        'activo': maquina.get('activo'),
+        'fecha_alta': maquina.get('fecha_alta'),
+        'codigo': ficha.get('codigo'),
+        'marca': ficha.get('marca'),
+        'modelo': ficha.get('modelo'),
+        'serie': ficha.get('serie'),
+        'ubicacion': ficha.get('ubicacion'),
+        'capacidad': ficha.get('capacidad'),
+        'voltaje': ficha.get('voltaje'),
+        'potencia': ficha.get('potencia'),
+        'proveedor': ficha.get('proveedor'),
+        'fecha_instalacion': ficha.get('fecha_instalacion'),
+        'notas': ficha.get('notas'),
+        'actualizado': ficha.get('actualizado'),
+    }
+
+
 def _sincronizar_turnos_fecha(fecha_jornada: str) -> int:
     """Molinos ya no alimenta empleados_turnos.
 
@@ -1388,11 +1449,10 @@ def historial_maquina(maquina_id: int, fecha_jornada: str, turno: str | None = N
         INNER JOIN maquinas m ON m.id = %s
         WHERE (UPPER(TRIM(b.maquina)) = UPPER(TRIM(m.nombre))
            OR UPPER(TRIM(b.maquina)) LIKE CONCAT('%%', UPPER(TRIM(m.nombre)), '%%'))
-          AND b.fecha_inicio BETWEEN %s AND %s
         ORDER BY b.fecha_inicio DESC, b.hora_inicio DESC, b.id DESC
-        LIMIT 100
+        LIMIT 500
         """,
-        (maquina_id, fecha_inicio, fecha_fin),
+        (maquina_id,),
     )
 
     historial = list(estados or []) + list(asignaciones or []) + list(mantenimientos or [])
@@ -1410,8 +1470,10 @@ def historial_maquina(maquina_id: int, fecha_jornada: str, turno: str | None = N
         key = row.get('turno') or 'SIN TURNO'
         personas_por_turno.setdefault(key, 0)
         personas_por_turno[key] += 1
+    ficha_tecnica = _ficha_tecnica_maquina(maquina_id)
     return {
         'historial': historial,
+        'ficha_tecnica': ficha_tecnica,
         'conteos': {
             'estados_asignaciones': len(estados or []) + len(asignaciones or []),
             'mantenimientos': len(mantenimientos or []),

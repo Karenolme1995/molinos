@@ -5,8 +5,19 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/empleado_molinos.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/molinos_service.dart';
+
+class _FotoSeleccionada {
+  final Uint8List bytes;
+  final String filename;
+
+  const _FotoSeleccionada({
+    required this.bytes,
+    required this.filename,
+  });
+}
 
 class EmpleadosScreen extends StatefulWidget {
   const EmpleadosScreen({super.key});
@@ -72,11 +83,15 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
     final telefono = TextEditingController();
     final direccion = TextEditingController();
     final status = TextEditingController(text: 'ACTIVO');
+    Uint8List? fotoBytes;
+    String? fotoFilename;
+    String? fotoPreviewUrl = empleado?.foto;
 
     try {
       final ok = await showDialog<bool>(
         context: context,
-        builder: (_) => AlertDialog(
+        builder: (_) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
           title: Text(esNuevo ? 'Agregar empleado' : 'Editar empleado'),
           content: SizedBox(
             width: 520,
@@ -101,6 +116,69 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                     alignment: Alignment.centerLeft,
                     child: Text('Departamento: MOLINOS', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
+                  const SizedBox(height: 14),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.black12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 34,
+                          backgroundImage: fotoBytes != null
+                              ? MemoryImage(fotoBytes!)
+                              : _fotoProvider(fotoPreviewUrl),
+                          child: (fotoBytes == null && (fotoPreviewUrl == null || fotoPreviewUrl!.isEmpty))
+                              ? const Icon(Icons.person, size: 34)
+                              : null,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Foto del empleado', style: TextStyle(fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 4),
+                              const Text('Se guardará en /uploads/empleados/', style: TextStyle(fontSize: 12, color: Colors.black54)),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                children: [
+                                  OutlinedButton.icon(
+                                    icon: const Icon(Icons.photo_camera),
+                                    label: const Text('Agregar / tomar foto'),
+                                    onPressed: () async {
+                                      final picked = await _seleccionarFoto();
+                                      if (picked == null) return;
+                                      setDialogState(() {
+                                        fotoBytes = picked.bytes;
+                                        fotoFilename = picked.filename;
+                                      });
+                                    },
+                                  ),
+                                  if (fotoBytes != null || (fotoPreviewUrl ?? '').isNotEmpty)
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.close),
+                                      label: const Text('Quitar selección'),
+                                      onPressed: () {
+                                        setDialogState(() {
+                                          fotoBytes = null;
+                                          fotoFilename = null;
+                                          fotoPreviewUrl = null;
+                                        });
+                                      },
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -110,6 +188,7 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
             FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Guardar')),
           ],
         ),
+        ),
       );
 
       if (ok != true) return;
@@ -118,8 +197,10 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
         return;
       }
 
+      int? empleadoIdParaFoto;
+
       if (esNuevo) {
-        await _service().crearEmpleado(
+        empleadoIdParaFoto = await _service().crearEmpleado(
           numeroNomina: nomina.text.trim(),
           nombre: nombre.text.trim(),
           puesto: puestoSeleccionado,
@@ -131,6 +212,7 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
         );
         _msg('Empleado agregado.');
       } else {
+        empleadoIdParaFoto = empleado.id;
         await _service().actualizarEmpleado(
           empleadoId: empleado.id,
           numeroNomina: nomina.text.trim(),
@@ -143,6 +225,15 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
           status: status.text.trim().isEmpty ? null : status.text.trim(),
         );
         _msg('Empleado actualizado.');
+      }
+
+      if (fotoBytes != null && empleadoIdParaFoto != null) {
+        await _service().subirFotoEmpleado(
+          empleadoId: empleadoIdParaFoto,
+          bytes: fotoBytes!,
+          filename: fotoFilename ?? 'empleado.jpg',
+        );
+        _msg('Foto guardada en /uploads/empleados/.');
       }
       await _load();
     } finally {
@@ -172,20 +263,35 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
     return turnos.any((t) => t.id == value) ? value : null;
   }
 
-  Future<void> _subirFoto(EmpleadoMolinos empleado) async {
+  ImageProvider? _fotoProvider(String? foto) {
+    final value = foto?.trim() ?? '';
+    if (value.isEmpty) return null;
+    final url = value.startsWith('http') ? value : '${ApiService.baseUrl.replaceFirst('/api/v1', '')}$value';
+    return NetworkImage(url);
+  }
+
+  Future<_FotoSeleccionada?> _seleccionarFoto() async {
     final input = html.FileUploadInputElement()..accept = 'image/*';
-    // En Flutter Web no existe el setter capture; se agrega como atributo HTML.
     input.setAttribute('capture', 'environment');
     input.click();
     await input.onChange.first;
+
     final file = input.files?.isNotEmpty == true ? input.files!.first : null;
-    if (file == null) return;
+    if (file == null) return null;
+
     final reader = html.FileReader();
     reader.readAsArrayBuffer(file);
     await reader.onLoad.first;
+
     final bytes = Uint8List.view(reader.result as ByteBuffer);
-    await _service().subirFotoEmpleado(empleadoId: empleado.id, bytes: bytes, filename: file.name);
-    _msg('Foto actualizada.');
+    return _FotoSeleccionada(bytes: bytes, filename: file.name.isEmpty ? 'empleado.jpg' : file.name);
+  }
+
+  Future<void> _subirFoto(EmpleadoMolinos empleado) async {
+    final picked = await _seleccionarFoto();
+    if (picked == null) return;
+    await _service().subirFotoEmpleado(empleadoId: empleado.id, bytes: picked.bytes, filename: picked.filename);
+    _msg('Foto guardada en /uploads/empleados/.');
     await _load();
   }
 
@@ -407,7 +513,10 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                       itemBuilder: (_, i) {
                         final e = _empleados[i];
                         return ListTile(
-                          leading: const CircleAvatar(child: Icon(Icons.person)),
+                          leading: CircleAvatar(
+                            backgroundImage: _fotoProvider(e.foto),
+                            child: (e.foto ?? '').isEmpty ? const Icon(Icons.person) : null,
+                          ),
                           title: Text(e.nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Text('Nómina: ${e.numeroNomina} · ${e.puesto ?? 'Sin puesto'} · ${e.turno ?? 'Sin turno'}'),
                           trailing: Row(
@@ -417,6 +526,11 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                                 tooltip: 'Editar rotación semanal',
                                 icon: const Icon(Icons.calendar_view_week),
                                 onPressed: () => _editarRotacion(e),
+                              ),
+                              IconButton(
+                                tooltip: 'Agregar / tomar foto',
+                                icon: const Icon(Icons.photo_camera),
+                                onPressed: () => _subirFoto(e),
                               ),
                               IconButton(
                                 tooltip: 'Editar empleado',
