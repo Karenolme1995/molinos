@@ -36,6 +36,40 @@ class CerrarMantenimientoIn(BaseModel):
     descripcion_correc: str | None = None
 
 
+class EmpleadoMolinosUpdateIn(BaseModel):
+    numero_nomina: str | None = None
+    nombre: str | None = None
+    puesto: str | None = None
+    responsabilidades: str | None = None
+    departamento: str | None = None
+    telefono: str | None = None
+    direccion: str | None = None
+    status: str | None = None
+
+
+class EmpleadoTurnoUpdateIn(BaseModel):
+    turno_id: int
+    fecha_inicio: str
+    fecha_fin: str | None = None
+
+
+class RotacionItemIn(BaseModel):
+    semana_orden: int
+    turno_id: int
+    fecha_inicio: str | None = None
+    fecha_fin: str | None = None
+
+
+class EmpleadoRotacionUpdateIn(BaseModel):
+    rotacion: list[RotacionItemIn]
+
+
+class MantenimientoCatalogoIn(BaseModel):
+    tipo_mant: str
+    tiempo_mant: str
+    activo: str | None = '1'
+
+
 def _es_supervisor_o_encargado(puesto: str | None) -> bool:
     texto = (puesto or '').upper()
     return 'SUPERVISOR' in texto or 'ENCARGAD' in texto
@@ -112,6 +146,82 @@ def _turno_por_concluir(start, end, minutos_alerta: int = 10) -> bool:
     return False
 
 
+
+def _minutos_hhmm(value) -> int | None:
+    if value is None:
+        return None
+    try:
+        txt = str(value)[:5]
+        h, m = txt.split(':')[:2]
+        return int(h) * 60 + int(m)
+    except Exception:
+        return None
+
+
+def _fmt_duracion(minutos: int | None) -> str | None:
+    if minutos is None:
+        return None
+    minutos = max(0, int(minutos))
+    h = minutos // 60
+    m = minutos % 60
+    if h <= 0:
+        return f"{m} min"
+    return f"{h} h {m:02d} min"
+
+
+def _calcular_asistencia_empleado(empleado: dict):
+    entrada = _minutos_hhmm(empleado.get('hora_entrada'))
+    salida_comida = _minutos_hhmm(empleado.get('hora_salida_comida'))
+    regreso_comida = _minutos_hhmm(empleado.get('hora_regreso_comida'))
+    salida = _minutos_hhmm(empleado.get('hora_salida'))
+    inicio_turno = _minutos_hhmm(empleado.get('turno_hora_inicio'))
+    fin_turno = _minutos_hhmm(empleado.get('turno_hora_fin'))
+
+    comida = None
+    if salida_comida is not None and regreso_comida is not None:
+        if regreso_comida < salida_comida:
+            regreso_comida += 1440
+        comida = regreso_comida - salida_comida
+
+    extra = None
+    if entrada is not None and salida is not None and inicio_turno is not None and fin_turno is not None:
+        salida_calc = salida
+        fin_calc = fin_turno
+        if salida_calc < entrada:
+            salida_calc += 1440
+        if fin_calc <= inicio_turno:
+            fin_calc += 1440
+        trabajado = max(0, salida_calc - entrada)
+        duracion_turno = max(0, fin_calc - inicio_turno)
+        comida_descanso = comida or 0
+        extra = max(0, trabajado - comida_descanso - duracion_turno)
+
+    empleado['comida_minutos'] = comida
+    empleado['comida_texto'] = _fmt_duracion(comida)
+    empleado['tiempo_extra_minutos'] = extra
+    empleado['tiempo_extra_texto'] = _fmt_duracion(extra)
+
+
+def _rango_fechas_por_vista(fecha_jornada: str, vista: str):
+    try:
+        fecha = datetime.strptime(fecha_jornada, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail='fecha_jornada debe tener formato YYYY-MM-DD')
+    v = (vista or 'dia').lower().strip()
+    if v == 'semana':
+        inicio = fecha - timedelta(days=fecha.weekday())
+        fin = inicio + timedelta(days=6)
+    elif v == 'mes':
+        inicio = fecha.replace(day=1)
+        if fecha.month == 12:
+            fin = fecha.replace(year=fecha.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            fin = fecha.replace(month=fecha.month + 1, day=1) - timedelta(days=1)
+    else:
+        inicio = fecha
+        fin = fecha
+    return inicio.strftime('%Y-%m-%d'), fin.strftime('%Y-%m-%d')
+
 def _turnos_catalogo():
     return fetch_all(
         """
@@ -124,6 +234,18 @@ def _turnos_catalogo():
         ORDER BY id
         """
     )
+
+
+def _norm_turno(value) -> str:
+    return ' '.join(str(value or '').upper().strip().split())
+
+
+def _semana_del_anio(fecha_jornada: str) -> int:
+    try:
+        fecha = datetime.strptime(fecha_jornada, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail='fecha_jornada debe tener formato YYYY-MM-DD')
+    return int(fecha.isocalendar().week)
 
 
 def _turnos_visibles(turno_nombre, hora_inicio, hora_fin, catalogo):
@@ -195,6 +317,27 @@ def listar_mantenimientos_molinos(user=Depends(get_current_user)):
     }
 
 
+@router.post('/mantenimientos')
+def crear_mantenimiento_molinos(data: MantenimientoCatalogoIn, user=Depends(require_admin_or_supervisor)):
+    tipo = (data.tipo_mant or '').strip()
+    tiempo = (data.tiempo_mant or '').strip()
+    if not tipo or not tiempo:
+        raise HTTPException(status_code=400, detail='Tipo de mantenimiento y tiempo son obligatorios')
+
+    area = fetch_one("SELECT id FROM areas WHERE UPPER(nombre) = UPPER('MOLINOS') LIMIT 1")
+    if not area:
+        raise HTTPException(status_code=404, detail='No existe el área MOLINOS')
+
+    new_id = execute(
+        """
+        INSERT INTO mantenimientos(tipo_mant, tiempo_mant, id_area, activo)
+        VALUES (%s, %s, %s, %s)
+        """,
+        (tipo, tiempo, area['id'], data.activo or '1'),
+    )
+    return {'id': new_id, 'message': 'Mantenimiento creado'}
+
+
 def _turno_por_hora(hora_texto, catalogo):
     minuto = _time_to_min(hora_texto)
     if minuto is None:
@@ -210,71 +353,108 @@ def _turno_por_hora(hora_texto, catalogo):
     return None
 
 
-def _sincronizar_turnos_fecha(fecha_jornada: str) -> int:
-    """Vincula empleados_turnos_rotacion con empleados_turnos para la fecha indicada."""
-    rows = fetch_all(
-        """
-        SELECT r.empleado_id, r.turno_id, r.semana_orden,
-               COALESCE(r.fecha_inicio, %s) AS fecha_inicio_base
-        FROM empleados_turnos_rotacion r
-        WHERE r.activo = 1
-          AND (r.fecha_inicio IS NULL OR r.fecha_inicio <= %s)
-          AND (r.fecha_fin IS NULL OR r.fecha_fin >= %s)
-        ORDER BY r.empleado_id, r.semana_orden
-        """,
-        (fecha_jornada, fecha_jornada, fecha_jornada),
-    )
-    if not rows:
-        return 0
 
-    por_empleado = defaultdict(list)
-    for row in rows:
-        por_empleado[row['empleado_id']].append(row)
+def _elegir_rotacion_empleado(rotaciones_all: list[dict], fecha_jornada: str) -> dict | None:
+    """Elige el turno real del empleado para la fecha.
 
+    Misma regla que el checador:
+    - Si hay una sola rotación vigente, se usa directo.
+    - Si hay varias, se calcula la semana cíclica desde fecha_inicio base.
+    - Si existe una fila con semana_orden igual a la semana ISO del año, tiene prioridad.
+    - Si las fechas no cubren el día del tablero, usa las rotaciones activas como respaldo.
+    """
+    if not rotaciones_all:
+        return None
     try:
         fecha = datetime.strptime(fecha_jornada, '%Y-%m-%d').date()
     except ValueError:
         raise HTTPException(status_code=400, detail='fecha_jornada debe tener formato YYYY-MM-DD')
 
-    actualizados = 0
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            for empleado_id, rotaciones in por_empleado.items():
-                rotaciones = sorted(rotaciones, key=lambda r: int(r['semana_orden'] or 1))
-                base = rotaciones[0]['fecha_inicio_base']
-                base_date = datetime.strptime(str(base)[:10], '%Y-%m-%d').date()
-                weeks = max(0, (fecha - base_date).days // 7)
-                elegido = rotaciones[weeks % len(rotaciones)]
+    semana_anio = int(fecha.isocalendar().week)
+    rotaciones_all = sorted(rotaciones_all, key=lambda r: (int(r.get('semana_orden') or 1), str(r.get('fecha_inicio') or '')))
+    vigentes = [r for r in rotaciones_all if int(r.get('vigente_fecha') or 0) == 1]
+    rotaciones = vigentes or rotaciones_all
 
-                cur.execute(
-                    """
-                    UPDATE empleados_turnos
-                    SET activo = 0, fecha_fin = DATE_SUB(%s, INTERVAL 1 DAY)
-                    WHERE empleado_id = %s AND activo = 1 AND turno_id <> %s
-                    """,
-                    (fecha_jornada, empleado_id, elegido['turno_id']),
-                )
-                cur.execute(
-                    """
-                    INSERT INTO empleados_turnos(empleado_id, turno_id, fecha_inicio, fecha_fin, activo)
-                    SELECT %s, %s, %s, NULL, 1
-                    WHERE NOT EXISTS (
-                      SELECT 1 FROM empleados_turnos
-                      WHERE empleado_id = %s AND turno_id = %s AND activo = 1
-                    )
-                    """,
-                    (empleado_id, elegido['turno_id'], fecha_jornada, empleado_id, elegido['turno_id']),
-                )
-                actualizados += 1
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    exactas = [r for r in rotaciones if int(r.get('semana_orden') or 0) == semana_anio]
+    if exactas:
+        elegido = dict(exactas[-1])
+        elegido['semana_anio'] = semana_anio
+        elegido['turno_origen'] = 'empleados_turnos_rotacion_semana_anio'
+        return elegido
 
-    return actualizados
+    if len(rotaciones) == 1:
+        elegido = dict(rotaciones[0])
+        elegido['semana_anio'] = semana_anio
+        elegido['turno_origen'] = 'empleados_turnos_rotacion_unica'
+        return elegido
+
+    fechas_base = []
+    for r in rotaciones:
+        base = r.get('fecha_inicio') or r.get('fecha_inicio_base')
+        if base:
+            try:
+                fechas_base.append(datetime.strptime(str(base)[:10], '%Y-%m-%d').date())
+            except Exception:
+                pass
+    fecha_base = min(fechas_base) if fechas_base else fecha
+    semanas_pasadas = max(0, (fecha - fecha_base).days // 7)
+    elegido = dict(rotaciones[semanas_pasadas % len(rotaciones)])
+    elegido['semana_anio'] = semana_anio
+    elegido['turno_origen'] = 'empleados_turnos_rotacion_ciclica'
+    if not vigentes:
+        elegido['turno_origen'] = 'empleados_turnos_rotacion_respaldo_sin_fecha_vigente'
+    return elegido
+
+
+def _rotaciones_activas_molinos(fecha_jornada: str) -> dict[int, list[dict]]:
+    rows = fetch_all(
+        """
+        SELECT r.empleado_id, r.turno_id, r.semana_orden,
+               DATE_FORMAT(r.fecha_inicio, '%%Y-%%m-%%d') AS fecha_inicio,
+               DATE_FORMAT(r.fecha_fin, '%%Y-%%m-%%d') AS fecha_fin,
+               COALESCE(r.fecha_inicio, %s) AS fecha_inicio_base,
+               CASE
+                 WHEN (r.fecha_inicio IS NULL OR r.fecha_inicio <= %s)
+                  AND (r.fecha_fin IS NULL OR r.fecha_fin >= %s)
+                 THEN 1 ELSE 0
+               END AS vigente_fecha,
+               UPPER(t.nombre) AS turno,
+               t.color AS turno_color,
+               TIME_FORMAT(t.hora_inicio, '%%H:%%i') AS turno_hora_inicio,
+               TIME_FORMAT(t.hora_fin, '%%H:%%i') AS turno_hora_fin
+        FROM empleados_turnos_rotacion r
+        INNER JOIN turnos t ON t.id = r.turno_id AND t.activo = 1
+        INNER JOIN empleados e ON e.id = r.empleado_id AND e.activo = 1
+        WHERE r.activo = 1
+          AND UPPER(IFNULL(e.departamento, '')) = UPPER('MOLINOS')
+        ORDER BY r.empleado_id, r.semana_orden, r.fecha_inicio
+        """,
+        (fecha_jornada, fecha_jornada, fecha_jornada),
+    )
+    por_empleado = defaultdict(list)
+    for row in rows:
+        por_empleado[row['empleado_id']].append(row)
+    return por_empleado
+
+
+def _turnos_programados_por_rotacion(fecha_jornada: str) -> dict[int, dict]:
+    programados: dict[int, dict] = {}
+    for empleado_id, rotaciones in _rotaciones_activas_molinos(fecha_jornada).items():
+        elegido = _elegir_rotacion_empleado(rotaciones, fecha_jornada)
+        if elegido:
+            programados[empleado_id] = elegido
+    return programados
+
+
+def _sincronizar_turnos_fecha(fecha_jornada: str) -> int:
+    """Molinos ya no alimenta empleados_turnos.
+
+    La fuente real de turnos es empleados_turnos_rotacion.
+    Este método se conserva para no romper el botón/endpoint de sincronizar,
+    pero solo valida/calcula la rotación programada y regresa cuántos empleados
+    tienen turno definido para la fecha.
+    """
+    return len(_turnos_programados_por_rotacion(fecha_jornada))
 
 
 def _cambiar_estado_tx(cur, maquina_id: int, estado_clave: str, observaciones: str | None, usuario_id: int, empleado_id: int | None = None):
@@ -433,9 +613,21 @@ def _insertar_bitacora_mantenimiento_tx(cur, maquina_id: int, data: CambiarEstad
 
 
 @router.get('/tablero')
-def tablero(fecha_jornada: str, user=Depends(get_current_user)):
+def tablero(fecha_jornada: str, turno: str = 'TURNO 1', vista: str = 'dia', user=Depends(get_current_user)):
     _sincronizar_turnos_fecha(fecha_jornada)
     catalogo_turnos = _turnos_catalogo()
+    turnos_rotacion = _turnos_programados_por_rotacion(fecha_jornada)
+    turno_filtro = _norm_turno(turno or 'TURNO 1')
+    debug_turnos = {
+        'turno_recibido': turno,
+        'turno_filtro': turno_filtro,
+        'vista': vista,
+        'total_empleados_molinos': 0,
+        'con_rotacion': 0,
+        'sin_rotacion': 0,
+        'fuera_del_turno': 0,
+        'dentro_del_turno': 0,
+    }
 
     maquinas = fetch_all(
         """
@@ -519,10 +711,10 @@ def tablero(fecha_jornada: str, user=Depends(get_current_user)):
           e.puesto,
           e.responsabilidades,
           e.departamento,
-          UPPER(t.nombre) AS turno,
-          t.color AS turno_color,
-          TIME_FORMAT(t.hora_inicio, '%%H:%%i') AS turno_hora_inicio,
-          TIME_FORMAT(t.hora_fin, '%%H:%%i') AS turno_hora_fin,
+          NULL AS turno,
+          NULL AS turno_color,
+          NULL AS turno_hora_inicio,
+          NULL AS turno_hora_fin,
           ma.maquina_id,
           m.nombre AS maquina_nombre,
           TIME_FORMAT(ma.hora_inicio, '%%H:%%i') AS hora_inicio_maquina,
@@ -563,12 +755,6 @@ def tablero(fecha_jornada: str, user=Depends(get_current_user)):
             ORDER BY as2.hora DESC LIMIT 1
           ) AS hora_salida
         FROM empleados e
-        LEFT JOIN empleados_turnos et
-          ON et.empleado_id = e.id
-         AND et.activo = 1
-         AND et.fecha_inicio <= %s
-         AND (et.fecha_fin IS NULL OR et.fecha_fin >= %s)
-        LEFT JOIN turnos t ON t.id = et.turno_id
         LEFT JOIN maquina_asignaciones ma
           ON ma.id = (
             SELECT ma2.id
@@ -584,9 +770,9 @@ def tablero(fecha_jornada: str, user=Depends(get_current_user)):
         LEFT JOIN acotaciones ac ON ac.id = ea.acotacion_id
         WHERE UPPER(IFNULL(e.departamento, '')) = UPPER('MOLINOS')
           AND e.activo = 1
-        ORDER BY t.nombre, e.puesto, e.nombre ASC
+        ORDER BY e.puesto, e.nombre ASC
         """,
-        (fecha_jornada, fecha_jornada, fecha_jornada, fecha_jornada, fecha_jornada, fecha_jornada, fecha_jornada, fecha_jornada, fecha_jornada, fecha_jornada),
+        (fecha_jornada, fecha_jornada, fecha_jornada, fecha_jornada, fecha_jornada, fecha_jornada, fecha_jornada, fecha_jornada),
     )
 
     por_maquina = defaultdict(list)
@@ -597,14 +783,41 @@ def tablero(fecha_jornada: str, user=Depends(get_current_user)):
     alertas = []
 
     for empleado in empleados:
+        debug_turnos['total_empleados_molinos'] += 1
         empleado['presente'] = bool(empleado['presente'])
         empleado['checo_salida'] = bool(empleado['checo_salida'])
-        empleado['turnos_visibles'] = _turnos_visibles(
-            empleado.get('turno'),
-            empleado.get('turno_hora_inicio'),
-            empleado.get('turno_hora_fin'),
-            catalogo_turnos,
-        )
+
+        turno_rotacion = turnos_rotacion.get(empleado['empleado_id'])
+        if turno_rotacion:
+            debug_turnos['con_rotacion'] += 1
+            empleado['turno_id'] = turno_rotacion.get('turno_id')
+            empleado['turno'] = turno_rotacion.get('turno')
+            empleado['turno_color'] = turno_rotacion.get('turno_color')
+            empleado['turno_hora_inicio'] = turno_rotacion.get('turno_hora_inicio')
+            empleado['turno_hora_fin'] = turno_rotacion.get('turno_hora_fin')
+            empleado['semana_orden'] = turno_rotacion.get('semana_orden')
+            empleado['semana_anio'] = turno_rotacion.get('semana_anio')
+            empleado['fecha_inicio_turno'] = turno_rotacion.get('fecha_inicio')
+            empleado['fecha_fin_turno'] = turno_rotacion.get('fecha_fin')
+            empleado['turno_origen'] = turno_rotacion.get('turno_origen') or 'empleados_turnos_rotacion'
+            _calcular_asistencia_empleado(empleado)
+        else:
+            debug_turnos['sin_rotacion'] += 1
+            # Si no hay rotación, no debe aparecer en ninguna pestaña de turno.
+            empleado['turno_origen'] = None
+            continue
+
+        if turno_filtro and turno_filtro != 'TODOS' and _norm_turno(empleado.get('turno')) != turno_filtro:
+            debug_turnos['fuera_del_turno'] += 1
+            continue
+
+        debug_turnos['dentro_del_turno'] += 1
+
+        empleado['turnos_visibles'] = [empleado.get('turno')] if empleado.get('turno') else []
+        # Ya no filtramos por traslape de horario; el turno lo define empleados_turnos_rotacion.
+        # El horario solo sirve para reloj/alertas.
+        empleado['turnos_visibles'] = [x for x in empleado['turnos_visibles'] if x]
+
         empleado['turno_en_horario'] = _en_horario(empleado.get('turno_hora_inicio'), empleado.get('turno_hora_fin'))
         empleado['turno_por_concluir'] = _turno_por_concluir(empleado.get('turno_hora_inicio'), empleado.get('turno_hora_fin'))
         empleados_turno.append(empleado)
@@ -630,9 +843,10 @@ def tablero(fecha_jornada: str, user=Depends(get_current_user)):
             if not empleado['presente']:
                 ausentes.append(empleado)
         else:
-            # Debe aparecer en la lista del turno asignado aunque aún no sea su turno.
-            espera.append(empleado)
-            if not empleado['presente']:
+            # Sin máquina: si checó entrada va a espera; si no checó va a no se presentaron.
+            if empleado['presente']:
+                espera.append(empleado)
+            else:
                 ausentes.append(empleado)
 
     for maquina in maquinas:
@@ -640,6 +854,10 @@ def tablero(fecha_jornada: str, user=Depends(get_current_user)):
 
     return {
         'fecha_jornada': fecha_jornada,
+        'semana_anio': _semana_del_anio(fecha_jornada),
+        'turno_filtro': turno_filtro,
+        'vista': vista,
+        'debug_turnos': debug_turnos,
         'maquinas': maquinas,
         'supervisores': supervisores,
         'empleados_turno': empleados_turno,
@@ -648,6 +866,231 @@ def tablero(fecha_jornada: str, user=Depends(get_current_user)):
         'alertas': alertas,
     }
 
+
+
+
+
+@router.get('/empleados')
+def listar_empleados_molinos(q: str = '', turno: str = 'TODOS', user=Depends(get_current_user)):
+    like = f"%{q.strip()}%"
+    rows = fetch_all(
+        """
+        SELECT e.id AS empleado_id, e.numero_nomina, e.nombre, e.foto, e.puesto,
+               e.responsabilidades, e.departamento, e.telefono, e.direccion, e.status,
+               NULL AS turno,
+               NULL AS turno_color,
+               NULL AS turno_hora_inicio,
+               NULL AS turno_hora_fin
+        FROM empleados e
+        WHERE e.activo = 1
+          AND UPPER(IFNULL(e.departamento, '')) = UPPER('MOLINOS')
+          AND (%s = '' OR e.nombre LIKE %s OR e.numero_nomina LIKE %s OR e.puesto LIKE %s)
+        ORDER BY e.nombre
+        LIMIT 200
+        """,
+        (q.strip(), like, like, like),
+    )
+
+    # En la pantalla de empleados también se muestra el turno calculado desde
+    # empleados_turnos_rotacion, para que coincida con el tablero de Molinos.
+    fecha_hoy = date.today().strftime('%Y-%m-%d')
+    rotacion = _turnos_programados_por_rotacion(fecha_hoy)
+    for row in rows:
+        turno_rotacion = rotacion.get(row['empleado_id'])
+        if turno_rotacion:
+            row['turno_id'] = turno_rotacion.get('turno_id')
+            row['turno'] = turno_rotacion.get('turno')
+            row['turno_color'] = turno_rotacion.get('turno_color')
+            row['turno_hora_inicio'] = turno_rotacion.get('turno_hora_inicio')
+            row['turno_hora_fin'] = turno_rotacion.get('turno_hora_fin')
+            row['semana_anio'] = turno_rotacion.get('semana_anio')
+            row['turno_origen'] = turno_rotacion.get('turno_origen') or 'empleados_turnos_rotacion'
+        else:
+            row['semana_anio'] = _semana_del_anio(fecha_hoy)
+            row['turno_origen'] = None
+
+    turno_norm = (turno or 'TODOS').upper().strip()
+    if turno_norm and turno_norm != 'TODOS':
+        rows = [r for r in rows if (r.get('turno') or '').upper().strip() == turno_norm]
+    return {'empleados': rows, 'semana_anio': _semana_del_anio(fecha_hoy)}
+
+
+@router.post('/empleados')
+def crear_empleado_molinos(data: EmpleadoMolinosUpdateIn, user=Depends(require_admin_or_supervisor)):
+    if not data.nombre or not data.numero_nomina:
+        raise HTTPException(status_code=400, detail='Nombre y nómina son obligatorios')
+    new_id = execute(
+        """
+        INSERT INTO empleados(numero_nomina, nombre, puesto, responsabilidades, departamento, telefono, direccion, status, activo)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 1)
+        """,
+        (
+            data.numero_nomina,
+            data.nombre,
+            data.puesto,
+            data.responsabilidades,
+            data.departamento or 'MOLINOS',
+            data.telefono,
+            data.direccion,
+            data.status or 'ACTIVO',
+        ),
+    )
+    return {'id': new_id, 'message': 'Empleado creado'}
+
+@router.get('/turnos')
+def listar_turnos(user=Depends(get_current_user)):
+    rows = fetch_all(
+        """
+        SELECT id, UPPER(nombre) AS nombre,
+               TIME_FORMAT(hora_inicio, '%%H:%%i') AS hora_inicio,
+               TIME_FORMAT(hora_fin, '%%H:%%i') AS hora_fin,
+               color
+        FROM turnos
+        WHERE activo = 1
+        ORDER BY id
+        """
+    )
+    return {'turnos': rows}
+
+
+@router.put('/empleados/{empleado_id}')
+def actualizar_empleado_molinos(empleado_id: int, data: EmpleadoMolinosUpdateIn, user=Depends(require_admin_or_supervisor)):
+    actual = fetch_one('SELECT id FROM empleados WHERE id = %s AND activo = 1', (empleado_id,))
+    if not actual:
+        raise HTTPException(status_code=404, detail='Empleado no encontrado')
+
+    execute(
+        """
+        UPDATE empleados
+        SET numero_nomina = COALESCE(%s, numero_nomina),
+            nombre = COALESCE(%s, nombre),
+            puesto = COALESCE(%s, puesto),
+            responsabilidades = COALESCE(%s, responsabilidades),
+            departamento = COALESCE(%s, departamento),
+            telefono = COALESCE(%s, telefono),
+            direccion = COALESCE(%s, direccion),
+            status = COALESCE(%s, status)
+        WHERE id = %s
+        """,
+        (
+            data.numero_nomina,
+            data.nombre,
+            data.puesto,
+            data.responsabilidades,
+            data.departamento,
+            data.telefono,
+            data.direccion,
+            data.status,
+            empleado_id,
+        ),
+    )
+    return {'message': 'Empleado actualizado'}
+
+
+@router.put('/empleados/{empleado_id}/turno')
+def actualizar_turno_empleado(empleado_id: int, data: EmpleadoTurnoUpdateIn, user=Depends(require_admin_or_supervisor)):
+    empleado = fetch_one('SELECT id FROM empleados WHERE id = %s AND activo = 1', (empleado_id,))
+    if not empleado:
+        raise HTTPException(status_code=404, detail='Empleado no encontrado')
+    turno = fetch_one('SELECT id FROM turnos WHERE id = %s AND activo = 1', (data.turno_id,))
+    if not turno:
+        raise HTTPException(status_code=404, detail='Turno no encontrado')
+
+    # Ya no se usa empleados_turnos. El cambio directo de turno alimenta
+    # empleados_turnos_rotacion para la semana actual del año.
+    semana = _semana_del_anio(data.fecha_inicio) if data.fecha_inicio else _semana_del_anio(date.today().strftime('%Y-%m-%d'))
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE empleados_turnos_rotacion
+                SET activo = 0
+                WHERE empleado_id = %s AND semana_orden = %s AND activo = 1
+                """,
+                (empleado_id, semana),
+            )
+            cur.execute(
+                """
+                INSERT INTO empleados_turnos_rotacion(empleado_id, semana_orden, turno_id, fecha_inicio, fecha_fin, activo)
+                VALUES (%s, %s, %s, %s, %s, 1)
+                """,
+                (empleado_id, semana, data.turno_id, data.fecha_inicio, data.fecha_fin),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+    return {'message': 'Turno del empleado actualizado en rotación', 'semana_orden': semana}
+
+
+@router.get('/empleados/{empleado_id}/rotacion')
+def obtener_rotacion_empleado(empleado_id: int, user=Depends(get_current_user)):
+    empleado = fetch_one('SELECT id FROM empleados WHERE id = %s AND activo = 1', (empleado_id,))
+    if not empleado:
+        raise HTTPException(status_code=404, detail='Empleado no encontrado')
+    rows = fetch_all(
+        """
+        SELECT r.id, r.empleado_id, r.semana_orden, r.turno_id,
+               UPPER(t.nombre) AS turno,
+               TIME_FORMAT(t.hora_inicio, '%%H:%%i') AS hora_inicio,
+               TIME_FORMAT(t.hora_fin, '%%H:%%i') AS hora_fin,
+               DATE_FORMAT(r.fecha_inicio, '%%Y-%%m-%%d') AS fecha_inicio,
+               DATE_FORMAT(r.fecha_fin, '%%Y-%%m-%%d') AS fecha_fin,
+               r.activo
+        FROM empleados_turnos_rotacion r
+        INNER JOIN turnos t ON t.id = r.turno_id
+        WHERE r.empleado_id = %s AND r.activo = 1
+        ORDER BY r.semana_orden
+        """,
+        (empleado_id,),
+    )
+    return {'rotacion': rows}
+
+
+@router.put('/empleados/{empleado_id}/rotacion')
+def guardar_rotacion_empleado(empleado_id: int, data: EmpleadoRotacionUpdateIn, user=Depends(require_admin_or_supervisor)):
+    empleado = fetch_one('SELECT id FROM empleados WHERE id = %s AND activo = 1', (empleado_id,))
+    if not empleado:
+        raise HTTPException(status_code=404, detail='Empleado no encontrado')
+    if not data.rotacion:
+        raise HTTPException(status_code=400, detail='Agrega al menos una semana de rotación')
+
+    semanas = set()
+    for item in data.rotacion:
+        if item.semana_orden < 1:
+            raise HTTPException(status_code=400, detail='semana_orden debe ser mayor a 0')
+        if item.semana_orden in semanas:
+            raise HTTPException(status_code=400, detail='No repitas la misma semana de rotación')
+        semanas.add(item.semana_orden)
+        turno = fetch_one('SELECT id FROM turnos WHERE id = %s AND activo = 1', (item.turno_id,))
+        if not turno:
+            raise HTTPException(status_code=404, detail=f'Turno no encontrado: {item.turno_id}')
+
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                'UPDATE empleados_turnos_rotacion SET activo = 0 WHERE empleado_id = %s',
+                (empleado_id,),
+            )
+            for item in sorted(data.rotacion, key=lambda x: x.semana_orden):
+                cur.execute(
+                    """
+                    INSERT INTO empleados_turnos_rotacion(empleado_id, semana_orden, turno_id, fecha_inicio, fecha_fin, activo)
+                    VALUES (%s, %s, %s, %s, %s, 1)
+                    """,
+                    (empleado_id, item.semana_orden, item.turno_id, item.fecha_inicio, item.fecha_fin),
+                )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+    return {'message': 'Rotación semanal actualizada'}
 
 @router.post('/sincronizar-turnos')
 def sincronizar_turnos(data: FechaJornadaIn, user=Depends(require_admin_or_supervisor)):
@@ -848,8 +1291,9 @@ def cerrar_mantenimiento_maquina(maquina_id: int, data: CerrarMantenimientoIn, u
 
 
 @router.get('/maquinas/{maquina_id}/historial')
-def historial_maquina(maquina_id: int, fecha_jornada: str, turno: str | None = None, user=Depends(get_current_user)):
+def historial_maquina(maquina_id: int, fecha_jornada: str, turno: str | None = None, vista: str = 'dia', user=Depends(get_current_user)):
     catalogo_turnos = _turnos_catalogo()
+    fecha_inicio, fecha_fin = _rango_fechas_por_vista(fecha_jornada, vista)
     estados = fetch_all(
         """
         SELECT 'estado' AS tipo,
@@ -861,10 +1305,10 @@ def historial_maquina(maquina_id: int, fecha_jornada: str, turno: str | None = N
         FROM maquinas_estado_historial h
         INNER JOIN maquina_estados me ON me.id = h.estado_id
         LEFT JOIN empleados e ON e.id = h.empleado_id
-        WHERE h.maquina_id = %s AND h.fecha = %s
+        WHERE h.maquina_id = %s AND h.fecha BETWEEN %s AND %s
         ORDER BY h.fecha DESC, h.hora DESC, h.id DESC
         """,
-        (maquina_id, fecha_jornada),
+        (maquina_id, fecha_inicio, fecha_fin),
     )
     for row in estados:
         row['turno'] = _turno_por_hora(row.get('hora'), catalogo_turnos) or ''
@@ -874,27 +1318,29 @@ def historial_maquina(maquina_id: int, fecha_jornada: str, turno: str | None = N
         SELECT 'asignacion' AS tipo,
                DATE_FORMAT(a.fecha_jornada, '%%Y-%%m-%%d') AS fecha,
                TIME_FORMAT(a.hora_inicio, '%%H:%%i') AS hora,
+               a.empleado_id AS empleado_id,
                e.nombre AS titulo,
                e.puesto AS subtitulo,
-               UPPER(t.nombre) AS turno,
-               TIME_FORMAT(t.hora_inicio, '%%H:%%i') AS turno_hora_inicio,
-               TIME_FORMAT(t.hora_fin, '%%H:%%i') AS turno_hora_fin,
+               '' AS turno,
+               NULL AS turno_hora_inicio,
+               NULL AS turno_hora_fin,
                CONCAT('Inicio: ', TIME_FORMAT(a.hora_inicio, '%%H:%%i'),
                       IF(a.hora_fin IS NULL, '', CONCAT(' / Fin: ', TIME_FORMAT(a.hora_fin, '%%H:%%i')))) AS observaciones
         FROM maquina_asignaciones a
         INNER JOIN empleados e ON e.id = a.empleado_id
-        LEFT JOIN empleados_turnos et
-          ON et.empleado_id = e.id
-         AND et.fecha_inicio <= a.fecha_jornada
-         AND (et.fecha_fin IS NULL OR et.fecha_fin >= a.fecha_jornada)
-        LEFT JOIN turnos t ON t.id = et.turno_id
-        WHERE a.maquina_id = %s AND a.fecha_jornada = %s
+        WHERE a.maquina_id = %s AND a.fecha_jornada BETWEEN %s AND %s
         ORDER BY a.hora_inicio DESC, a.id DESC
         """,
-        (maquina_id, fecha_jornada),
+        (maquina_id, fecha_inicio, fecha_fin),
     )
 
+    rotacion_historial = _turnos_programados_por_rotacion(fecha_jornada)
     for row in asignaciones:
+        turno_rotacion = rotacion_historial.get(row.get('empleado_id'))
+        if turno_rotacion:
+            row['turno'] = turno_rotacion.get('turno') or ''
+            row['turno_hora_inicio'] = turno_rotacion.get('turno_hora_inicio')
+            row['turno_hora_fin'] = turno_rotacion.get('turno_hora_fin')
         visibles = _turnos_visibles(row.get('turno'), row.get('turno_hora_inicio'), row.get('turno_hora_fin'), catalogo_turnos)
         row['turnos_visibles'] = visibles
         row['turno'] = ', '.join(visibles) if visibles else (row.get('turno') or '')
@@ -940,12 +1386,13 @@ def historial_maquina(maquina_id: int, fecha_jornada: str, turno: str | None = N
                '' AS turno
         FROM bitacoras b
         INNER JOIN maquinas m ON m.id = %s
-        WHERE UPPER(TRIM(b.maquina)) = UPPER(TRIM(m.nombre))
-           OR UPPER(TRIM(b.maquina)) LIKE CONCAT('%%', UPPER(TRIM(m.nombre)), '%%')
+        WHERE (UPPER(TRIM(b.maquina)) = UPPER(TRIM(m.nombre))
+           OR UPPER(TRIM(b.maquina)) LIKE CONCAT('%%', UPPER(TRIM(m.nombre)), '%%'))
+          AND b.fecha_inicio BETWEEN %s AND %s
         ORDER BY b.fecha_inicio DESC, b.hora_inicio DESC, b.id DESC
         LIMIT 100
         """,
-        (maquina_id,),
+        (maquina_id, fecha_inicio, fecha_fin),
     )
 
     historial = list(estados or []) + list(asignaciones or []) + list(mantenimientos or [])
@@ -958,7 +1405,23 @@ def historial_maquina(maquina_id: int, fecha_jornada: str, turno: str | None = N
             or filtro in [x.upper().strip() for x in (r.get('turnos_visibles') or [])]
         ]
     historial.sort(key=lambda r: (r.get('fecha') or '', r.get('hora') or ''), reverse=True)
-    return {'historial': historial}
+    personas_por_turno = {}
+    for row in asignaciones or []:
+        key = row.get('turno') or 'SIN TURNO'
+        personas_por_turno.setdefault(key, 0)
+        personas_por_turno[key] += 1
+    return {
+        'historial': historial,
+        'conteos': {
+            'estados_asignaciones': len(estados or []) + len(asignaciones or []),
+            'mantenimientos': len(mantenimientos or []),
+            'personas_asignadas': len(asignaciones or []),
+        },
+        'personas_por_turno': personas_por_turno,
+        'vista': vista,
+        'fecha_inicio': fecha_inicio,
+        'fecha_fin': fecha_fin,
+    }
 
 
 @router.get('/asistencia-matriz')

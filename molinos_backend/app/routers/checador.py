@@ -161,28 +161,68 @@ def get_empleado_por_nomina(db, numero_nomina: str):
         return cur.fetchone()
 
 
-def get_turno_empleado(db, empleado_id: int):
+def get_turno_empleado(db, empleado_id: int, fecha_base: date | None = None):
+    """Obtiene el turno desde empleados_turnos_rotacion.
+
+    Ya no se consulta ni se alimenta empleados_turnos.
+    Prioridad:
+    1) fila activa/vigente con semana_orden igual a la semana ISO del año;
+    2) si solo hay una rotación vigente, usarla;
+    3) si hay varias, usar rotación cíclica desde la fecha_inicio más antigua.
+    """
+    fecha_hoy = fecha_base or today_mx()
+    semana_anio = int(fecha_hoy.isocalendar().week)
+
     with db.cursor() as cur:
         cur.execute(
             """
             SELECT
+                r.semana_orden,
+                r.turno_id,
+                r.fecha_inicio,
+                r.fecha_fin,
                 t.id,
                 t.nombre,
                 t.hora_inicio,
                 t.hora_fin,
                 t.color
-            FROM empleados_turnos et
-            INNER JOIN turnos t ON t.id = et.turno_id
-            WHERE et.empleado_id = %s
-              AND et.activo = 1
+            FROM empleados_turnos_rotacion r
+            INNER JOIN turnos t ON t.id = r.turno_id
+            WHERE r.empleado_id = %s
+              AND r.activo = 1
               AND t.activo = 1
-            ORDER BY et.id DESC
-            LIMIT 1
+              AND (r.fecha_inicio IS NULL OR r.fecha_inicio <= %s)
+              AND (r.fecha_fin IS NULL OR r.fecha_fin >= %s)
+            ORDER BY r.semana_orden ASC, r.id ASC
             """,
-            (empleado_id,),
+            (empleado_id, fecha_hoy, fecha_hoy),
         )
 
-        return cur.fetchone()
+        rotaciones = cur.fetchall()
+
+    if not rotaciones:
+        return None
+
+    for r in rotaciones:
+        if int(r.get("semana_orden") or 0) == semana_anio:
+            return r
+
+    if len(rotaciones) == 1:
+        return rotaciones[0]
+
+    fechas_base = [r.get("fecha_inicio") for r in rotaciones if r.get("fecha_inicio")]
+    fecha_inicio_base = min(fechas_base) if fechas_base else fecha_hoy
+    semana_rotacion = calcular_semana_rotacion(
+        fecha_base=fecha_inicio_base,
+        fecha_actual=fecha_hoy,
+        total_semanas=len(rotaciones),
+    )
+
+    for r in rotaciones:
+        if int(r.get("semana_orden") or 0) == int(semana_rotacion):
+            return r
+
+    return rotaciones[0]
 
 
 def get_checada_dia(db, empleado_id: int, fecha_jornada: date):
@@ -358,140 +398,23 @@ def normalizar_checada(row):
 
 
 def aplicar_rotacion_empleado(db, empleado_id: int):
-    fecha_hoy = today_mx()
+    """Valida la rotación del empleado sin escribir en empleados_turnos.
 
-    with db.cursor() as cur:
-        cur.execute(
-            """
-            SELECT
-                semana_orden,
-                turno_id,
-                fecha_inicio,
-                fecha_fin
-            FROM empleados_turnos_rotacion
-            WHERE empleado_id = %s
-              AND activo = 1
-              AND (fecha_inicio IS NULL OR fecha_inicio <= %s)
-              AND (fecha_fin IS NULL OR fecha_fin >= %s)
-            ORDER BY semana_orden ASC
-            """,
-            (empleado_id, fecha_hoy, fecha_hoy),
-        )
-
-        rotaciones = cur.fetchall()
-
-    if not rotaciones:
+    La fuente única es empleados_turnos_rotacion. Se conserva el nombre de la
+    función para no cambiar las llamadas del checador.
+    """
+    turno = get_turno_empleado(db, empleado_id)
+    if not turno:
         return {
             "aplico": False,
             "message": "El empleado no tiene rotación vigente para la fecha actual",
         }
 
-    # Si solo hay una rotación vigente por rango de fechas, se aplica directo.
-    if len(rotaciones) == 1:
-        rotacion_actual = rotaciones[0]
-        semana_actual = int(rotacion_actual["semana_orden"])
-    else:
-        total_semanas = len(rotaciones)
-
-        fechas_base = [r.get("fecha_inicio") for r in rotaciones if r.get("fecha_inicio")]
-        fecha_base = min(fechas_base) if fechas_base else None
-
-        if not fecha_base:
-            with db.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT MIN(fecha_inicio) AS fecha_base
-                    FROM empleados_turnos
-                    WHERE empleado_id = %s
-                    """,
-                    (empleado_id,),
-                )
-
-                base = cur.fetchone()
-
-            fecha_base = base.get("fecha_base") if base else None
-
-        if not fecha_base:
-            fecha_base = fecha_hoy
-
-        semana_actual = calcular_semana_rotacion(
-            fecha_base=fecha_base,
-            fecha_actual=fecha_hoy,
-            total_semanas=total_semanas,
-        )
-
-        rotacion_actual = None
-
-        for r in rotaciones:
-            if int(r["semana_orden"]) == int(semana_actual):
-                rotacion_actual = r
-                break
-
-        if not rotacion_actual:
-            rotacion_actual = rotaciones[0]
-            semana_actual = int(rotacion_actual["semana_orden"])
-
-    turno_id = rotacion_actual["turno_id"]
-    fecha_fin_rotacion = rotacion_actual.get("fecha_fin")
-
-    turno_actual = get_turno_empleado(db, empleado_id)
-
-    if turno_actual and int(turno_actual["id"]) == int(turno_id):
-        with db.cursor() as cur:
-            cur.execute(
-                """
-                UPDATE empleados_turnos
-                SET fecha_fin = %s
-                WHERE empleado_id = %s
-                  AND activo = 1
-                """,
-                (fecha_fin_rotacion, empleado_id),
-            )
-        db.commit()
-
-        return {
-            "aplico": False,
-            "message": "El turno actual ya corresponde a la rotación",
-            "turno_id": turno_id,
-            "semana_actual": semana_actual,
-        }
-
-    fecha_fin_anterior = fecha_hoy - timedelta(days=1)
-
-    with db.cursor() as cur:
-        cur.execute(
-            """
-            UPDATE empleados_turnos
-            SET activo = 0,
-                fecha_fin = %s
-            WHERE empleado_id = %s
-              AND activo = 1
-            """,
-            (fecha_fin_anterior, empleado_id),
-        )
-
-        cur.execute(
-            """
-            INSERT INTO empleados_turnos (
-                empleado_id,
-                turno_id,
-                fecha_inicio,
-                fecha_fin,
-                activo
-            ) VALUES (%s, %s, %s, %s, 1)
-            """,
-            (empleado_id, turno_id, fecha_hoy, fecha_fin_rotacion),
-        )
-
-    db.commit()
-
     return {
-        "aplico": True,
-        "message": "Rotación semanal aplicada",
-        "turno_id": turno_id,
-        "semana_actual": semana_actual,
-        "fecha_inicio": str(fecha_hoy),
-        "fecha_fin": str(fecha_fin_rotacion) if fecha_fin_rotacion else None,
+        "aplico": False,
+        "message": "Turno obtenido desde empleados_turnos_rotacion",
+        "turno_id": turno.get("id"),
+        "semana_actual": turno.get("semana_orden"),
     }
 
 
@@ -544,18 +467,9 @@ def registrar_checada_empleado(db, empleado):
                 ),
             )
 
-            if tipo == "salida":
-                cur.execute(
-                    """
-                    UPDATE maquina_asignaciones
-                    SET activo = 0,
-                        hora_fin = CURTIME()
-                    WHERE empleado_id = %s
-                      AND fecha_jornada = %s
-                      AND activo = 1
-                    """,
-                    (empleado["id"], fecha_jornada),
-                )
+            # No se cierra maquina_asignaciones al registrar salida.
+            # La ubicación del empleado en Molinos permanece hasta que
+            # supervisor/administrador lo mueva manualmente.
 
         db.commit()
 
@@ -710,21 +624,20 @@ def aplicar_rotacion_turnos(
 
         empleados = cur.fetchall()
 
-    actualizados = 0
     revisados = 0
+    con_turno = 0
 
     for emp in empleados:
         revisados += 1
-        result = aplicar_rotacion_empleado(db, emp["empleado_id"])
-
-        if result.get("aplico"):
-            actualizados += 1
+        if get_turno_empleado(db, emp["empleado_id"], fecha_hoy):
+            con_turno += 1
 
     return {
-        "message": "Rotación semanal revisada correctamente",
+        "message": "Rotación semanal revisada desde empleados_turnos_rotacion",
         "fecha": str(fecha_hoy),
         "empleados_revisados": revisados,
-        "empleados_actualizados": actualizados,
+        "empleados_con_turno": con_turno,
+        "empleados_actualizados": 0,
     }
 
 

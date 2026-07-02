@@ -6,6 +6,7 @@ import 'api_service.dart';
 
 class TableroMolinos {
   final DateTime? fechaJornada;
+  final int? semanaAnio;
   final List<MaquinaMolinos> maquinas;
   final List<EmpleadoMolinos> supervisores;
   final List<EmpleadoMolinos> empleadosTurno;
@@ -15,6 +16,7 @@ class TableroMolinos {
 
   const TableroMolinos({
     this.fechaJornada,
+    this.semanaAnio,
     required this.maquinas,
     required this.supervisores,
     required this.empleadosTurno,
@@ -32,6 +34,7 @@ class TableroMolinos {
 
     return TableroMolinos(
       fechaJornada: DateTime.tryParse((json['fecha_jornada'] ?? '').toString()),
+      semanaAnio: _toInt(json['semana_anio']),
       maquinas: (json['maquinas'] as List? ?? [])
           .map((e) => MaquinaMolinos.fromJson(Map<String, dynamic>.from(e)))
           .toList(),
@@ -143,26 +146,114 @@ class MantenimientoMolino {
   final int id;
   final String tipoMant;
   final String tiempoMant;
-  final int idArea;
+  final int? idArea;
   final String? area;
 
   const MantenimientoMolino({
     required this.id,
     required this.tipoMant,
     required this.tiempoMant,
-    required this.idArea,
+    this.idArea,
     this.area,
   });
 
   factory MantenimientoMolino.fromJson(Map<String, dynamic> json) {
     return MantenimientoMolino(
-      id: int.tryParse((json['id'] ?? '0').toString()) ?? 0,
-      tipoMant: (json['tipo_mant'] ?? '').toString(),
-      tiempoMant: (json['tiempo_mant'] ?? '').toString(),
-      idArea: int.tryParse((json['id_area'] ?? '0').toString()) ?? 0,
-      area: MaquinaHistorialMolino._nullable(json['area']),
+      id: _toInt(json['id']) ?? 0,
+      tipoMant: (json['tipo_mant'] ?? json['tipoMant'] ?? '').toString(),
+      tiempoMant: (json['tiempo_mant'] ?? json['tiempoMant'] ?? '').toString(),
+      idArea: _toInt(json['id_area'] ?? json['idArea']),
+      area: _toNullableString(json['area']),
     );
   }
+}
+
+class TurnoMolino {
+  final int id;
+  final String nombre;
+  final String? horaInicio;
+  final String? horaFin;
+  final String? color;
+
+  const TurnoMolino({
+    required this.id,
+    required this.nombre,
+    this.horaInicio,
+    this.horaFin,
+    this.color,
+  });
+
+  factory TurnoMolino.fromJson(Map<String, dynamic> json) {
+    return TurnoMolino(
+      id: _toInt(json['id']) ?? 0,
+      nombre: (json['nombre'] ?? '').toString(),
+      horaInicio: _toNullableString(json['hora_inicio'] ?? json['horaInicio']),
+      horaFin: _toNullableString(json['hora_fin'] ?? json['horaFin']),
+      color: _toNullableString(json['color']),
+    );
+  }
+}
+
+class RotacionTurnoMolino {
+  final int? id;
+  final int? empleadoId;
+  final int semanaOrden;
+  final int turnoId;
+  final String? turno;
+  final String? horaInicio;
+  final String? horaFin;
+  final String? fechaInicio;
+  final String? fechaFin;
+  final bool activo;
+
+  const RotacionTurnoMolino({
+    this.id,
+    this.empleadoId,
+    required this.semanaOrden,
+    required this.turnoId,
+    this.turno,
+    this.horaInicio,
+    this.horaFin,
+    this.fechaInicio,
+    this.fechaFin,
+    this.activo = true,
+  });
+
+  factory RotacionTurnoMolino.fromJson(Map<String, dynamic> json) {
+    return RotacionTurnoMolino(
+      id: _toInt(json['id']),
+      empleadoId: _toInt(json['empleado_id'] ?? json['empleadoId']),
+      semanaOrden: _toInt(json['semana_orden'] ?? json['semanaOrden']) ?? 1,
+      turnoId: _toInt(json['turno_id'] ?? json['turnoId']) ?? 0,
+      turno: _toNullableString(json['turno']),
+      horaInicio: _toNullableString(json['hora_inicio'] ?? json['horaInicio']),
+      horaFin: _toNullableString(json['hora_fin'] ?? json['horaFin']),
+      fechaInicio: _toNullableString(json['fecha_inicio'] ?? json['fechaInicio']),
+      fechaFin: _toNullableString(json['fecha_fin'] ?? json['fechaFin']),
+      activo: json['activo'] == true || json['activo'] == 1 || json['activo']?.toString() == '1',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'semana_orden': semanaOrden,
+      'turno_id': turnoId,
+      'fecha_inicio': fechaInicio,
+      'fecha_fin': fechaFin,
+    };
+  }
+}
+
+int? _toInt(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  return int.tryParse(value.toString());
+}
+
+String? _toNullableString(dynamic value) {
+  if (value == null) return null;
+  final text = value.toString();
+  return text.trim().isEmpty ? null : text;
 }
 
 class MolinosService {
@@ -175,9 +266,16 @@ class MolinosService {
         '${fecha.day.toString().padLeft(2, '0')}';
   }
 
-  Future<TableroMolinos> tablero(DateTime fecha) async {
+  Future<TableroMolinos> tablero(DateTime fecha, {String turno = 'TURNO 1', String vista = 'dia'}) async {
+    final uri = Uri.parse('${ApiService.baseUrl}/molinos/tablero').replace(
+      queryParameters: {
+        'fecha_jornada': _fmt(fecha),
+        'turno': turno,
+        'vista': vista,
+      },
+    );
     final res = await http.get(
-      Uri.parse('${ApiService.baseUrl}/molinos/tablero?fecha_jornada=${_fmt(fecha)}'),
+      uri,
       headers: ApiService.headers(token: token),
     );
     return TableroMolinos.fromJson(Map<String, dynamic>.from(ApiService.decode(res)));
@@ -236,6 +334,23 @@ class MolinosService {
         .toList();
   }
 
+  Future<int?> crearMantenimientoMolinos({
+    required String tipoMant,
+    required String tiempoMant,
+  }) async {
+    final res = await http.post(
+      Uri.parse('${ApiService.baseUrl}/molinos/mantenimientos'),
+      headers: ApiService.headers(token: token),
+      body: jsonEncode({
+        'tipo_mant': tipoMant,
+        'tiempo_mant': tiempoMant,
+        'activo': '1',
+      }),
+    );
+    final json = Map<String, dynamic>.from(ApiService.decode(res));
+    return _toInt(json['id']);
+  }
+
   Future<void> cambiarEstado({
     required int maquinaId,
     required String estado,
@@ -265,22 +380,34 @@ class MolinosService {
     ApiService.decode(res);
   }
 
-  Future<List<MaquinaHistorialMolino>> historialMaquina({
+  Future<Map<String, dynamic>> historialMaquinaDetalle({
     required int maquinaId,
     required DateTime fecha,
     String turno = 'TODOS',
+    String vista = 'dia',
   }) async {
     final uri = Uri.parse('${ApiService.baseUrl}/molinos/maquinas/$maquinaId/historial').replace(
-      queryParameters: {'fecha_jornada': _fmt(fecha), 'turno': turno},
+      queryParameters: {'fecha_jornada': _fmt(fecha), 'turno': turno, 'vista': vista},
     );
     final res = await http.get(
       uri,
       headers: ApiService.headers(token: token),
     );
     final json = Map<String, dynamic>.from(ApiService.decode(res));
-    return (json['historial'] as List? ?? [])
+    final historial = (json['historial'] as List? ?? [])
         .map((e) => MaquinaHistorialMolino.fromJson(Map<String, dynamic>.from(e)))
         .toList();
+    return {...json, 'historial': historial};
+  }
+
+  Future<List<MaquinaHistorialMolino>> historialMaquina({
+    required int maquinaId,
+    required DateTime fecha,
+    String turno = 'TODOS',
+    String vista = 'dia',
+  }) async {
+    final data = await historialMaquinaDetalle(maquinaId: maquinaId, fecha: fecha, turno: turno, vista: vista);
+    return List<MaquinaHistorialMolino>.from(data['historial'] as List);
   }
   Future<void> cerrarMantenimiento({
     required int maquinaId,
@@ -296,6 +423,138 @@ class MolinosService {
       }),
     );
     ApiService.decode(res);
+  }
+
+
+
+  Future<List<EmpleadoMolinos>> empleados({String q = '', String turno = 'TODOS'}) async {
+    final uri = Uri.parse('${ApiService.baseUrl}/molinos/empleados').replace(
+      queryParameters: {'q': q, 'turno': turno},
+    );
+    final res = await http.get(uri, headers: ApiService.headers(token: token));
+    final json = Map<String, dynamic>.from(ApiService.decode(res));
+    return (json['empleados'] as List? ?? [])
+        .map((e) => EmpleadoMolinos.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  Future<int?> crearEmpleado({
+    required String numeroNomina,
+    required String nombre,
+    String? puesto,
+    String? responsabilidades,
+    String departamento = 'MOLINOS',
+    String? telefono,
+    String? direccion,
+    String status = 'ACTIVO',
+  }) async {
+    final res = await http.post(
+      Uri.parse('${ApiService.baseUrl}/molinos/empleados'),
+      headers: ApiService.headers(token: token),
+      body: jsonEncode({
+        'numero_nomina': numeroNomina,
+        'nombre': nombre,
+        'puesto': puesto,
+        'responsabilidades': responsabilidades,
+        'departamento': departamento,
+        'telefono': telefono,
+        'direccion': direccion,
+        'status': status,
+      }),
+    );
+    final json = Map<String, dynamic>.from(ApiService.decode(res));
+    return int.tryParse(json['id']?.toString() ?? '');
+  }
+
+  Future<List<TurnoMolino>> turnos() async {
+    final res = await http.get(
+      Uri.parse('${ApiService.baseUrl}/molinos/turnos'),
+      headers: ApiService.headers(token: token),
+    );
+    final json = Map<String, dynamic>.from(ApiService.decode(res));
+    return (json['turnos'] as List? ?? [])
+        .map((e) => TurnoMolino.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  Future<void> actualizarEmpleado({
+    required int empleadoId,
+    required String numeroNomina,
+    required String nombre,
+    String? puesto,
+    String? responsabilidades,
+    String? departamento,
+    String? telefono,
+    String? direccion,
+    String? status,
+  }) async {
+    final res = await http.put(
+      Uri.parse('${ApiService.baseUrl}/molinos/empleados/$empleadoId'),
+      headers: ApiService.headers(token: token),
+      body: jsonEncode({
+        'numero_nomina': numeroNomina,
+        'nombre': nombre,
+        'puesto': puesto,
+        'responsabilidades': responsabilidades,
+        'departamento': departamento,
+        'telefono': telefono,
+        'direccion': direccion,
+        'status': status,
+      }),
+    );
+    ApiService.decode(res);
+  }
+
+  Future<void> actualizarTurnoEmpleado({
+    required int empleadoId,
+    required int turnoId,
+    required DateTime fechaInicio,
+    DateTime? fechaFin,
+  }) async {
+    final res = await http.put(
+      Uri.parse('${ApiService.baseUrl}/molinos/empleados/$empleadoId/turno'),
+      headers: ApiService.headers(token: token),
+      body: jsonEncode({
+        'turno_id': turnoId,
+        'fecha_inicio': _fmt(fechaInicio),
+        'fecha_fin': fechaFin == null ? null : _fmt(fechaFin),
+      }),
+    );
+    ApiService.decode(res);
+  }
+
+  Future<List<RotacionTurnoMolino>> rotacionEmpleado(int empleadoId) async {
+    final res = await http.get(
+      Uri.parse('${ApiService.baseUrl}/molinos/empleados/$empleadoId/rotacion'),
+      headers: ApiService.headers(token: token),
+    );
+    final json = Map<String, dynamic>.from(ApiService.decode(res));
+    return (json['rotacion'] as List? ?? [])
+        .map((e) => RotacionTurnoMolino.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  Future<void> guardarRotacionEmpleado({
+    required int empleadoId,
+    required List<RotacionTurnoMolino> rotacion,
+  }) async {
+    final res = await http.put(
+      Uri.parse('${ApiService.baseUrl}/molinos/empleados/$empleadoId/rotacion'),
+      headers: ApiService.headers(token: token),
+      body: jsonEncode({'rotacion': rotacion.map((e) => e.toJson()).toList()}),
+    );
+    ApiService.decode(res);
+  }
+
+  Future<String?> subirFotoEmpleado({required int empleadoId, required List<int> bytes, required String filename}) async {
+    final uri = Uri.parse('${ApiService.baseUrl}/molinos/empleados/$empleadoId/foto');
+    final req = http.MultipartRequest('POST', uri);
+    req.headers['Authorization'] = 'Bearer $token';
+    req.files.add(http.MultipartFile.fromBytes('foto', bytes, filename: filename));
+    final streamed = await req.send();
+    final res = await http.Response.fromStream(streamed);
+    final json = Map<String, dynamic>.from(ApiService.decode(res));
+    return json['foto']?.toString();
   }
 
 }

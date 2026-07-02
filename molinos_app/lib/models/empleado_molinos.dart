@@ -25,6 +25,10 @@ class EmpleadoMolinos {
   final String? horaSalida;
   final String? horaInicioMaquina;
   final String? horaFinMaquina;
+  final int? comidaMinutos;
+  final String? comidaTexto;
+  final int? tiempoExtraMinutos;
+  final String? tiempoExtraTexto;
 
   const EmpleadoMolinos({
     required this.id,
@@ -53,6 +57,10 @@ class EmpleadoMolinos {
     this.horaSalida,
     this.horaInicioMaquina,
     this.horaFinMaquina,
+    this.comidaMinutos,
+    this.comidaTexto,
+    this.tiempoExtraMinutos,
+    this.tiempoExtraTexto,
   });
 
   factory EmpleadoMolinos.fromJson(Map<String, dynamic> json) {
@@ -83,6 +91,10 @@ class EmpleadoMolinos {
       horaSalida: _asNullableString(json['hora_salida']),
       horaInicioMaquina: _asNullableString(json['hora_inicio_maquina']),
       horaFinMaquina: _asNullableString(json['hora_fin_maquina']),
+      comidaMinutos: _asNullableInt(json['comida_minutos']),
+      comidaTexto: _asNullableString(json['comida_texto']),
+      tiempoExtraMinutos: _asNullableInt(json['tiempo_extra_minutos']),
+      tiempoExtraTexto: _asNullableString(json['tiempo_extra_texto']),
     );
   }
 
@@ -91,6 +103,21 @@ class EmpleadoMolinos {
     if (f == 'TODOS') return true;
     if (turnosVisibles.map((e) => e.toUpperCase().trim()).contains(f)) return true;
     return (turno ?? '').toUpperCase().trim() == f;
+  }
+
+  String get resumenChecadas {
+    final partes = <String>[];
+    if (horaEntrada == null || horaEntrada!.isEmpty) {
+      partes.add('No ha checado entrada');
+    } else {
+      partes.add('Entrada: $horaEntrada');
+    }
+    if (horaSalidaComida != null && horaSalidaComida!.isNotEmpty) partes.add('Salida comida: $horaSalidaComida');
+    if (horaRegresoComida != null && horaRegresoComida!.isNotEmpty) partes.add('Regreso comida: $horaRegresoComida');
+    if (horaSalida != null && horaSalida!.isNotEmpty) partes.add('Salida: $horaSalida');
+    if (comidaTexto != null && comidaTexto!.isNotEmpty) partes.add('Comida: $comidaTexto');
+    if (tiempoExtraTexto != null && tiempoExtraTexto!.isNotEmpty) partes.add('Extra: $tiempoExtraTexto');
+    return partes.join(' · ');
   }
 
   String get horarioTurno {
