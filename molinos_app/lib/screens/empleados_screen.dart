@@ -80,9 +80,9 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
     final nombre = TextEditingController(text: empleado?.nombre ?? '');
     String puestoSeleccionado = _puestos.contains((empleado?.puesto ?? '').toUpperCase().trim()) ? (empleado?.puesto ?? '').toUpperCase().trim() : 'OTRO';
     final responsabilidades = TextEditingController(text: empleado?.responsabilidades ?? '');
-    final telefono = TextEditingController();
-    final direccion = TextEditingController();
-    final status = TextEditingController(text: 'ACTIVO');
+    final telefono = TextEditingController(text: empleado?.telefono ?? '');
+    final direccion = TextEditingController(text: empleado?.direccion ?? '');
+    int activoSeleccionado = empleado?.activo ?? 1;
     Uint8List? fotoBytes;
     String? fotoFilename;
     String? fotoPreviewUrl = empleado?.foto;
@@ -110,7 +110,18 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                   TextField(controller: responsabilidades, minLines: 2, maxLines: 4, decoration: const InputDecoration(labelText: 'Responsabilidades')),
                   TextField(controller: telefono, decoration: const InputDecoration(labelText: 'Teléfono')),
                   TextField(controller: direccion, decoration: const InputDecoration(labelText: 'Dirección')),
-                  TextField(controller: status, decoration: const InputDecoration(labelText: 'Status')),
+                  DropdownButtonFormField<int>(
+                    value: activoSeleccionado,
+                    items: const [
+                      DropdownMenuItem(value: 1, child: Text('Activo')),
+                      DropdownMenuItem(value: 0, child: Text('Inactivo')),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setDialogState(() => activoSeleccionado = value);
+                    },
+                    decoration: const InputDecoration(labelText: 'Status'),
+                  ),
                   const SizedBox(height: 10),
                   const Align(
                     alignment: Alignment.centerLeft,
@@ -208,7 +219,8 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
           departamento: 'MOLINOS',
           telefono: telefono.text.trim(),
           direccion: direccion.text.trim(),
-          status: status.text.trim().isEmpty ? 'ACTIVO' : status.text.trim(),
+          status: activoSeleccionado == 1 ? 'ACTIVO' : 'INACTIVO',
+          activo: activoSeleccionado,
         );
         _msg('Empleado agregado.');
       } else {
@@ -222,7 +234,8 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
           departamento: 'MOLINOS',
           telefono: telefono.text.trim(),
           direccion: direccion.text.trim(),
-          status: status.text.trim().isEmpty ? null : status.text.trim(),
+          status: activoSeleccionado == 1 ? 'ACTIVO' : 'INACTIVO',
+          activo: activoSeleccionado,
         );
         _msg('Empleado actualizado.');
       }
@@ -242,7 +255,6 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
       responsabilidades.dispose();
       telefono.dispose();
       direccion.dispose();
-      status.dispose();
     }
   }
 
@@ -283,7 +295,8 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
     reader.readAsArrayBuffer(file);
     await reader.onLoad.first;
 
-    final bytes = Uint8List.view(reader.result as ByteBuffer);
+    final buffer = reader.result as ByteBuffer;
+    final bytes = Uint8List.fromList(buffer.asUint8List());
     return _FotoSeleccionada(bytes: bytes, filename: file.name.isEmpty ? 'empleado.jpg' : file.name);
   }
 
@@ -518,7 +531,9 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                             child: (e.foto ?? '').isEmpty ? const Icon(Icons.person) : null,
                           ),
                           title: Text(e.nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('Nómina: ${e.numeroNomina} · ${e.puesto ?? 'Sin puesto'} · ${e.turno ?? 'Sin turno'}'),
+                          subtitle: Text(
+                            'Nómina: ${e.numeroNomina} · ${e.puesto ?? 'Sin puesto'} · Actual: ${e.turno ?? 'Sin turno'} · Sigue: ${e.proximoTurno ?? 'Sin próximo turno'} · ${e.status ?? (e.activo == 1 ? 'ACTIVO' : 'INACTIVO')}',
+                          ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [

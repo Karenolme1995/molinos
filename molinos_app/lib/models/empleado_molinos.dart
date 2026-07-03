@@ -9,6 +9,14 @@ class EmpleadoMolinos {
   final String? turnoColor;
   final String? turnoHoraInicio;
   final String? turnoHoraFin;
+  final int? proximoTurnoId;
+  final String? proximoTurno;
+  final String? proximoTurnoHoraInicio;
+  final String? proximoTurnoHoraFin;
+  final String? telefono;
+  final String? direccion;
+  final String? status;
+  final int activo;
   final bool turnoEnHorario;
   final bool turnoPorConcluir;
   final List<String> turnosVisibles;
@@ -25,10 +33,6 @@ class EmpleadoMolinos {
   final String? horaSalida;
   final String? horaInicioMaquina;
   final String? horaFinMaquina;
-  final int? comidaMinutos;
-  final String? comidaTexto;
-  final int? tiempoExtraMinutos;
-  final String? tiempoExtraTexto;
 
   const EmpleadoMolinos({
     required this.id,
@@ -41,6 +45,14 @@ class EmpleadoMolinos {
     this.turnoColor,
     this.turnoHoraInicio,
     this.turnoHoraFin,
+    this.proximoTurnoId,
+    this.proximoTurno,
+    this.proximoTurnoHoraInicio,
+    this.proximoTurnoHoraFin,
+    this.telefono,
+    this.direccion,
+    this.status,
+    this.activo = 1,
     this.turnoEnHorario = true,
     this.turnoPorConcluir = false,
     this.turnosVisibles = const [],
@@ -57,10 +69,6 @@ class EmpleadoMolinos {
     this.horaSalida,
     this.horaInicioMaquina,
     this.horaFinMaquina,
-    this.comidaMinutos,
-    this.comidaTexto,
-    this.tiempoExtraMinutos,
-    this.tiempoExtraTexto,
   });
 
   factory EmpleadoMolinos.fromJson(Map<String, dynamic> json) {
@@ -71,10 +79,18 @@ class EmpleadoMolinos {
       foto: _asNullableString(json['foto']),
       puesto: _asNullableString(json['puesto']),
       responsabilidades: _asNullableString(json['responsabilidades']),
-      turno: _asNullableString(json['turno']),
+      turno: _asNullableString(json['turno'] ?? json['turno_nombre']),
       turnoColor: _asNullableString(json['turno_color']),
       turnoHoraInicio: _asNullableString(json['turno_hora_inicio']),
       turnoHoraFin: _asNullableString(json['turno_hora_fin']),
+      proximoTurnoId: _asNullableInt(json['proximo_turno_id']),
+      proximoTurno: _asNullableString(json['proximo_turno'] ?? json['proximo_turno_nombre']),
+      proximoTurnoHoraInicio: _asNullableString(json['proximo_turno_hora_inicio']),
+      proximoTurnoHoraFin: _asNullableString(json['proximo_turno_hora_fin']),
+      telefono: _asNullableString(json['telefono']),
+      direccion: _asNullableString(json['direccion']),
+      status: _asNullableString(json['status']),
+      activo: _asInt(json['activo'] ?? 1),
       turnoEnHorario: _asBool(json['turno_en_horario'], defaultValue: true),
       turnoPorConcluir: _asBool(json['turno_por_concluir']),
       turnosVisibles: _asStringList(json['turnos_visibles']),
@@ -91,10 +107,6 @@ class EmpleadoMolinos {
       horaSalida: _asNullableString(json['hora_salida']),
       horaInicioMaquina: _asNullableString(json['hora_inicio_maquina']),
       horaFinMaquina: _asNullableString(json['hora_fin_maquina']),
-      comidaMinutos: _asNullableInt(json['comida_minutos']),
-      comidaTexto: _asNullableString(json['comida_texto']),
-      tiempoExtraMinutos: _asNullableInt(json['tiempo_extra_minutos']),
-      tiempoExtraTexto: _asNullableString(json['tiempo_extra_texto']),
     );
   }
 
@@ -105,19 +117,9 @@ class EmpleadoMolinos {
     return (turno ?? '').toUpperCase().trim() == f;
   }
 
-  String get resumenChecadas {
-    final partes = <String>[];
-    if (horaEntrada == null || horaEntrada!.isEmpty) {
-      partes.add('No ha checado entrada');
-    } else {
-      partes.add('Entrada: $horaEntrada');
-    }
-    if (horaSalidaComida != null && horaSalidaComida!.isNotEmpty) partes.add('Salida comida: $horaSalidaComida');
-    if (horaRegresoComida != null && horaRegresoComida!.isNotEmpty) partes.add('Regreso comida: $horaRegresoComida');
-    if (horaSalida != null && horaSalida!.isNotEmpty) partes.add('Salida: $horaSalida');
-    if (comidaTexto != null && comidaTexto!.isNotEmpty) partes.add('Comida: $comidaTexto');
-    if (tiempoExtraTexto != null && tiempoExtraTexto!.isNotEmpty) partes.add('Extra: $tiempoExtraTexto');
-    return partes.join(' · ');
+  String get horarioProximoTurno {
+    if (proximoTurnoHoraInicio == null && proximoTurnoHoraFin == null) return '';
+    return '${proximoTurnoHoraInicio ?? '--:--'} - ${proximoTurnoHoraFin ?? '--:--'}';
   }
 
   String get horarioTurno {

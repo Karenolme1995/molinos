@@ -23,8 +23,6 @@ class _MolinosScreenState extends State<MolinosScreen> {
   bool _syncing = false;
   String? _error;
   String _turnoFiltro = _turnoAutomaticoInicial();
-  String _vistaHistorial = 'dia';
-  Timer? _turnoAutoTimer;
   TableroMolinos? _tablero;
 
   final List<String> _turnos = const ['TURNO 1', 'TURNO 2', 'TURNO 3'];
@@ -44,24 +42,6 @@ class _MolinosScreenState extends State<MolinosScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
-    _turnoAutoTimer = Timer.periodic(const Duration(minutes: 1), (_) => _verificarCambioAutomaticoTurno());
-  }
-
-  @override
-  void dispose() {
-    _turnoAutoTimer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _verificarCambioAutomaticoTurno() async {
-    final automatico = _turnoAutomaticoInicial();
-    if (!mounted || automatico == _turnoFiltro) return;
-    setState(() => _turnoFiltro = automatico);
-    await _load();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Ya comenzó $automatico · TURNO ACTUAL')),
-    );
   }
 
   Future<void> _load() async {
@@ -72,7 +52,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
     });
     try {
       final token = context.read<AuthService>().token!;
-      final data = await MolinosService(token).tablero(_fecha, turno: _turnoFiltro, vista: 'dia');
+      final data = await MolinosService(token).tablero(_fecha);
       if (!mounted) return;
       setState(() => _tablero = data);
     } catch (e) {
@@ -90,7 +70,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       final token = context.read<AuthService>().token!;
       await MolinosService(token).sincronizarTurnos(_fecha);
       await _load();
-      _ok('Turnos sincronizados con empleados_turnos_rotacion.');
+      _ok('Turnos actualizados desde empleados_turnos_rotacion.');
     } catch (e) {
       _showError(e);
     } finally {
@@ -159,6 +139,86 @@ class _MolinosScreenState extends State<MolinosScreen> {
   String? _clean(String? value) {
     final text = value?.trim() ?? '';
     return text.isEmpty ? null : text;
+  }
+
+
+  Future<MantenimientoMolino?> _crearMantenimientoRapido(String sugerido) async {
+    final tipoCtrl = TextEditingController(text: sugerido.trim());
+    final tiempoCtrl = TextEditingController();
+    try {
+      return await showDialog<MantenimientoMolino>(
+        context: context,
+        builder: (dialogContext) {
+          bool guardando = false;
+          return StatefulBuilder(
+            builder: (context, setDialogState) => AlertDialog(
+              title: const Text('Agregar mantenimiento'),
+              content: SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: tipoCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Tipo de mantenimiento / falla',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: tiempoCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Frecuencia o tiempo mant.',
+                        hintText: 'Ej. 7 días, 2 semanas, 1 mes',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: guardando ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: guardando
+                      ? null
+                      : () async {
+                          final tipo = tipoCtrl.text.trim();
+                          final tiempo = tiempoCtrl.text.trim();
+                          if (tipo.isEmpty || tiempo.isEmpty) {
+                            _showError('Captura tipo de mantenimiento y tiempo.');
+                            return;
+                          }
+                          setDialogState(() => guardando = true);
+                          try {
+                            final token = context.read<AuthService>().token!;
+                            final nuevo = await MolinosService(token).crearMantenimientoMolinos(
+                              tipoMant: tipo,
+                              tiempoMant: tiempo,
+                            );
+                            if (dialogContext.mounted) Navigator.pop(dialogContext, nuevo);
+                          } catch (e) {
+                            _showError(e);
+                            setDialogState(() => guardando = false);
+                          }
+                        },
+                  icon: guardando
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.add),
+                  label: Text(guardando ? 'Guardando...' : 'Agregar'),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    } finally {
+      tipoCtrl.dispose();
+      tiempoCtrl.dispose();
+    }
   }
 
   Future<Map<String, dynamic>?> _pedirDatosEstado(MaquinaMolinos maquina, String estado) async {
@@ -243,67 +303,20 @@ class _MolinosScreenState extends State<MolinosScreen> {
                               ),
                               const SizedBox(width: 8),
                               IconButton.filled(
-                                tooltip: 'Agregar mantenimiento al catálogo',
-                                icon: const Icon(Icons.add),
+                                tooltip: 'Agregar nuevo mantenimiento',
                                 onPressed: () async {
-                                  final tipoCtrl = TextEditingController();
-                                  final tiempoCtrl = TextEditingController();
-                                  try {
-                                    final ok = await showDialog<bool>(
-                                      context: dialogContext,
-                                      builder: (_) => AlertDialog(
-                                        title: const Text('Nuevo mantenimiento MOLINOS'),
-                                        content: SizedBox(
-                                          width: 420,
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              TextField(
-                                                controller: tipoCtrl,
-                                                decoration: const InputDecoration(labelText: 'Tipo mantenimiento'),
-                                              ),
-                                              TextField(
-                                                controller: tiempoCtrl,
-                                                decoration: const InputDecoration(
-                                                  labelText: 'Tiempo / frecuencia en días',
-                                                  hintText: 'Ejemplo: 7, 15, 30',
-                                                ),
-                                                keyboardType: TextInputType.number,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        actions: [
-                                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-                                          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Guardar')),
-                                        ],
-                                      ),
-                                    );
-                                    if (ok == true) {
-                                      final tipo = tipoCtrl.text.trim();
-                                      final tiempo = tiempoCtrl.text.trim();
-                                      if (tipo.isEmpty || tiempo.isEmpty) {
-                                        _showError('Tipo y tiempo son obligatorios');
-                                        return;
-                                      }
-                                      final token = this.context.read<AuthService>().token!;
-                                      final service = MolinosService(token);
-                                      final newId = await service.crearMantenimientoMolinos(tipoMant: tipo, tiempoMant: tiempo);
-                                      final actualizados = await service.mantenimientosMolinos();
-                                      setDialogState(() {
-                                        mantenimientos = actualizados;
-                                        mantenimientoId = newId;
-                                        mantenimiento = tipo;
-                                        diasAuto = diasDesdeTiempoMant(tiempo);
-                                        fechaProximaAuto = diasAuto == null ? '' : fechaProximaDesdeDias(diasAuto!);
-                                      });
-                                      _ok('Mantenimiento agregado al catálogo.');
-                                    }
-                                  } finally {
-                                    tipoCtrl.dispose();
-                                    tiempoCtrl.dispose();
-                                  }
+                                  final nuevo = await _crearMantenimientoRapido(buscarMantenimiento);
+                                  if (nuevo == null) return;
+                                  setDialogState(() {
+                                    mantenimientos = [...mantenimientos, nuevo];
+                                    mantenimientoId = nuevo.id;
+                                    mantenimiento = nuevo.tipoMant;
+                                    diasAuto = diasDesdeTiempoMant(nuevo.tiempoMant);
+                                    fechaProximaAuto = diasAuto == null ? '' : fechaProximaDesdeDias(diasAuto!);
+                                    buscarMantenimiento = nuevo.tipoMant;
+                                  });
                                 },
+                                icon: const Icon(Icons.add),
                               ),
                             ],
                           ),
@@ -403,20 +416,15 @@ class _MolinosScreenState extends State<MolinosScreen> {
   Future<void> _verHistorial(MaquinaMolinos maquina) async {
     try {
       final token = context.read<AuthService>().token!;
-      final data = await MolinosService(token).historialMaquinaDetalle(
+      final rows = await MolinosService(token).historialMaquina(
         maquinaId: maquina.id,
         fecha: _fecha,
         turno: _turnoFiltro,
-        vista: _vistaHistorial,
       );
-      final rows = List<MaquinaHistorialMolino>.from(data['historial'] as List);
-      final conteos = Map<String, dynamic>.from(data['conteos'] ?? {});
-      final fichaTecnica = Map<String, dynamic>.from(data['ficha_tecnica'] ?? {});
       if (!mounted) return;
 
       final historial = rows.where((h) => h.tipo != 'mantenimiento').toList();
       final mantenimientos = rows.where((h) => h.tipo == 'mantenimiento').toList();
-      final asignaciones = rows.where((h) => h.tipo == 'asignacion').toList();
 
       showDialog(
         context: context,
@@ -426,42 +434,21 @@ class _MolinosScreenState extends State<MolinosScreen> {
             width: 680,
             height: 520,
             child: DefaultTabController(
-              length: 4,
+              length: 2,
               child: Column(
                 children: [
-                  StatefulBuilder(
-                    builder: (context, setDialogState) => Wrap(
-                      spacing: 8,
-                      children: ['dia', 'semana', 'mes'].map((v) {
-                        return ChoiceChip(
-                          selected: _vistaHistorial == v,
-                          label: Text(v.toUpperCase()),
-                          onSelected: (_) {
-                            setDialogState(() => _vistaHistorial = v);
-                            Navigator.pop(context);
-                            _verHistorial(maquina);
-                          },
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TabBar(
+                  const TabBar(
                     tabs: [
-                      Tab(icon: const Icon(Icons.history), text: 'Estados/asig. (${conteos['estados_asignaciones'] ?? historial.length})'),
-                      Tab(icon: const Icon(Icons.build), text: 'Mantenimientos (${conteos['mantenimientos'] ?? mantenimientos.length})'),
-                      const Tab(icon: Icon(Icons.description), text: 'Ficha técnica'),
-                      const Tab(icon: Icon(Icons.people), text: 'Personas por turno'),
+                      Tab(icon: Icon(Icons.history), text: 'Estados / asignaciones'),
+                      Tab(icon: Icon(Icons.build), text: 'Mantenimientos'),
                     ],
                   ),
                   const SizedBox(height: 10),
                   Expanded(
                     child: TabBarView(
                       children: [
-                        _historialList(historial, vacio: 'Sin historial para esta vista y turno.', maquina: maquina),
+                        _historialList(historial, vacio: 'Sin historial para esta jornada y turno.', maquina: maquina),
                         _historialList(mantenimientos, vacio: 'Sin mantenimientos registrados para este molino.', maquina: maquina),
-                        _fichaTecnicaMaquina(maquina, fichaTecnica),
-                        _personasAsignadasPorTurno(asignaciones),
                       ],
                     ),
                   ),
@@ -538,131 +525,6 @@ class _MolinosScreenState extends State<MolinosScreen> {
             if (h.subtitulo?.isNotEmpty == true) h.subtitulo!,
             if (h.observaciones?.isNotEmpty == true) h.observaciones!,
           ].join(' · ')),
-        );
-      },
-    );
-  }
-
-
-  Widget _fichaTecnicaMaquina(MaquinaMolinos maquina, Map<String, dynamic> ficha) {
-    final rows = <MapEntry<String, String>>[
-      MapEntry('Máquina', (ficha['nombre'] ?? maquina.nombre).toString()),
-      MapEntry('Área', (ficha['area'] ?? 'MOLINOS').toString()),
-      MapEntry('Descripción', (ficha['descripcion'] ?? maquina.descripcion ?? 'Sin descripción').toString()),
-      MapEntry('Código interno', (ficha['codigo'] ?? 'Sin capturar').toString()),
-      MapEntry('Marca', (ficha['marca'] ?? 'Sin capturar').toString()),
-      MapEntry('Modelo', (ficha['modelo'] ?? 'Sin capturar').toString()),
-      MapEntry('Serie', (ficha['serie'] ?? 'Sin capturar').toString()),
-      MapEntry('Ubicación', (ficha['ubicacion'] ?? 'Sin capturar').toString()),
-      MapEntry('Capacidad', (ficha['capacidad'] ?? 'Sin capturar').toString()),
-      MapEntry('Voltaje', (ficha['voltaje'] ?? 'Sin capturar').toString()),
-      MapEntry('Potencia', (ficha['potencia'] ?? 'Sin capturar').toString()),
-      MapEntry('Proveedor', (ficha['proveedor'] ?? 'Sin capturar').toString()),
-      MapEntry('Fecha instalación', (ficha['fecha_instalacion'] ?? 'Sin capturar').toString()),
-      MapEntry('Fecha alta', (ficha['fecha_alta'] ?? 'Sin dato').toString()),
-      MapEntry('Última actualización', (ficha['actualizado'] ?? 'Sin dato').toString()),
-      MapEntry('Estado actual', maquina.estadoNombre),
-      MapEntry('Inicio estado', '${maquina.estadoFechaInicio ?? '-'} ${maquina.estadoHoraInicio ?? ''}'.trim()),
-      MapEntry('Observaciones estado', maquina.estadoObservaciones ?? 'Sin observaciones'),
-      MapEntry('Próximo mantenimiento', maquina.mantenimientoProximo ?? 'Sin mantenimiento próximo'),
-      MapEntry('Fecha próxima', maquina.mantenimientoFechaProxima ?? 'Sin fecha'),
-      MapEntry('Días restantes', maquina.mantenimientoDiasRestantes == null ? 'Sin dato' : '${maquina.mantenimientoDiasRestantes}'),
-      MapEntry('Notas', (ficha['notas'] ?? 'Sin notas').toString()),
-    ];
-
-    return ListView(
-      padding: const EdgeInsets.all(8),
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.precision_manufacturing_outlined),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Ficha técnica de ${maquina.nombre}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Table(
-                  columnWidths: const {0: FixedColumnWidth(170), 1: FlexColumnWidth()},
-                  border: TableBorder.all(color: Colors.black12),
-                  children: rows.map((r) {
-                    return TableRow(
-                      children: [
-                        Container(
-                          color: Colors.grey.shade100,
-                          padding: const EdgeInsets.all(9),
-                          child: Text(r.key, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(9),
-                          child: Text(r.value.isEmpty ? '-' : r.value),
-                        ),
-                      ],
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Para editar estos datos llena la tabla maquina_ficha_tecnica. Si no hay datos, se muestra la información básica de maquinas.',
-                  style: TextStyle(color: Colors.black54, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-
-  Widget _personasAsignadasPorTurno(List<MaquinaHistorialMolino> asignaciones) {
-    if (asignaciones.isEmpty) {
-      return const Center(child: Text('Sin personas asignadas para esta vista.'));
-    }
-
-    final Map<String, List<MaquinaHistorialMolino>> grupos = {};
-    for (final a in asignaciones) {
-      final turno = (a.turno == null || a.turno!.trim().isEmpty) ? 'SIN TURNO' : a.turno!.trim().toUpperCase();
-      grupos.putIfAbsent(turno, () => []).add(a);
-    }
-
-    final turnos = grupos.keys.toList()..sort();
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(8),
-      itemCount: turnos.length,
-      itemBuilder: (_, index) {
-        final turno = turnos[index];
-        final rows = grupos[turno]!;
-        return Card(
-          margin: const EdgeInsets.only(bottom: 10),
-          child: ExpansionTile(
-            initiallyExpanded: true,
-            leading: const Icon(Icons.groups),
-            title: Text('$turno (${rows.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
-            children: rows.map((h) {
-              return ListTile(
-                dense: true,
-                leading: const Icon(Icons.person_outline),
-                title: Text(h.titulo, style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text([
-                  '${h.fecha} ${h.hora}',
-                  if (h.subtitulo?.isNotEmpty == true) h.subtitulo!,
-                  if (h.observaciones?.isNotEmpty == true) h.observaciones!,
-                ].join(' · ')),
-              );
-            }).toList(),
-          ),
         );
       },
     );
@@ -770,10 +632,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
   }
 
   bool _visiblePorTurno(EmpleadoMolinos e) {
-    // El backend ya regresa solo el turno seleccionado. Esta validación local
-    // se deja solo como respaldo y debe ser exacta, sin mezclar por traslape.
-    if (_turnoFiltro == 'TODOS') return true;
-    return (e.turno ?? '').toUpperCase().trim() == _turnoFiltro.toUpperCase().trim();
+    return e.apareceEnTurno(_turnoFiltro);
   }
 
   bool _esLavador(EmpleadoMolinos e) => (e.puesto ?? '').toUpperCase().contains('LAVADOR');
@@ -850,263 +709,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
             ),
           ),
         ),
-        actions: [
-          if (context.read<AuthService>().canEdit)
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _editarEmpleadoDialog(e);
-              },
-              child: const Text('Editar empleado / rotación'),
-            ),
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
-        ],
-      ),
-    );
-  }
-
-
-
-  List<TurnoMolino> _turnosUnicos(List<TurnoMolino> turnos) {
-    final Map<int, TurnoMolino> map = {};
-    for (final t in turnos) {
-      if (t.id != 0) map[t.id] = t;
-    }
-    final list = map.values.toList();
-    list.sort((a, b) => a.id.compareTo(b.id));
-    return list;
-  }
-
-  int? _valorDropdownValido(int? value, List<TurnoMolino> turnos) {
-    if (value == null || value == 0) return null;
-    return turnos.any((t) => t.id == value) ? value : null;
-  }
-
-  Future<void> _editarEmpleadoDialog(EmpleadoMolinos e) async {
-    final token = context.read<AuthService>().token!;
-    final service = MolinosService(token);
-    final numeroCtrl = TextEditingController(text: e.numeroNomina);
-    final nombreCtrl = TextEditingController(text: e.nombre);
-    final puestoCtrl = TextEditingController(text: e.puesto ?? '');
-    final respCtrl = TextEditingController(text: e.responsabilidades ?? '');
-    int? turnoId;
-    List<TurnoMolino> turnos = const [];
-
-    try {
-      turnos = _turnosUnicos(await service.turnos());
-      final actual = turnos.where((t) => t.nombre.toUpperCase() == (e.turno ?? '').toUpperCase()).toList();
-      if (actual.isNotEmpty) turnoId = actual.first.id;
-      turnoId = _valorDropdownValido(turnoId, turnos);
-    } catch (_) {}
-
-    if (!mounted) return;
-    await showDialog(
-      context: context,
-      builder: (_) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            title: Text('Editar ${e.nombre}'),
-            content: SizedBox(
-              width: 520,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(controller: numeroCtrl, decoration: const InputDecoration(labelText: 'Nómina')),
-                    TextField(controller: nombreCtrl, decoration: const InputDecoration(labelText: 'Nombre')),
-                    TextField(controller: puestoCtrl, decoration: const InputDecoration(labelText: 'Puesto')),
-                    TextField(
-                      controller: respCtrl,
-                      minLines: 2,
-                      maxLines: 4,
-                      decoration: const InputDecoration(labelText: 'Responsabilidades'),
-                    ),
-                    const SizedBox(height: 14),
-                    const Text('Turno actual', style: TextStyle(fontWeight: FontWeight.bold)),
-                    DropdownButtonFormField<int>(
-                      value: _valorDropdownValido(turnoId, turnos),
-                      items: turnos.map<DropdownMenuItem<int>>((t) {
-                        final horario = [t.horaInicio, t.horaFin].whereType<String>().join(' - ');
-                        return DropdownMenuItem(value: t.id, child: Text('${t.nombre}${horario.isEmpty ? '' : ' ($horario)'}'));
-                      }).toList(),
-                      onChanged: (value) => setDialogState(() => turnoId = value),
-                      decoration: const InputDecoration(labelText: 'Selecciona turno'),
-                    ),
-                    const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      onPressed: () => _rotacionSemanalDialog(e, turnos),
-                      icon: const Icon(Icons.calendar_view_week),
-                      label: const Text('Editar rotación semanal'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-              ElevatedButton(
-                onPressed: () async {
-                  try {
-                    await service.actualizarEmpleado(
-                      empleadoId: e.id,
-                      numeroNomina: numeroCtrl.text.trim(),
-                      nombre: nombreCtrl.text.trim(),
-                      puesto: puestoCtrl.text.trim(),
-                      responsabilidades: respCtrl.text.trim(),
-                      departamento: 'MOLINOS',
-                    );
-                    if (turnoId != null) {
-                      await service.actualizarTurnoEmpleado(
-                        empleadoId: e.id,
-                        turnoId: turnoId!,
-                        fechaInicio: _fecha,
-                      );
-                    }
-                    if (mounted) Navigator.pop(context);
-                    await _load();
-                    _ok('Empleado actualizado');
-                  } catch (err) {
-                    _showError(err);
-                  }
-                },
-                child: const Text('Guardar'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-
-    numeroCtrl.dispose();
-    nombreCtrl.dispose();
-    puestoCtrl.dispose();
-    respCtrl.dispose();
-  }
-
-  Future<void> _rotacionSemanalDialog(EmpleadoMolinos e, List<TurnoMolino> turnosIniciales) async {
-    final token = context.read<AuthService>().token!;
-    final service = MolinosService(token);
-    var turnos = _turnosUnicos(turnosIniciales);
-    if (turnos.isEmpty) turnos = _turnosUnicos(await service.turnos());
-    var rotacion = await service.rotacionEmpleado(e.id);
-    if (rotacion.isEmpty && turnos.isNotEmpty) {
-      rotacion = [
-        RotacionTurnoMolino(semanaOrden: _semanaDelAnio(_fecha), turnoId: turnos.first.id, fechaInicio: DateFormat('yyyy-MM-dd').format(_fecha)),
-      ];
-    }
-
-    if (!mounted) return;
-    await showDialog(
-      context: context,
-      builder: (_) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            title: Text('Rotación semanal - ${e.nombre}'),
-            content: SizedBox(
-              width: 560,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text('Define desde la semana actual del año en adelante y el turno que tendrá el empleado.', style: TextStyle(fontWeight: FontWeight.w600)),
-                    ),
-                    const SizedBox(height: 10),
-                    ...rotacion.asMap().entries.map((entry) {
-                      final i = entry.key;
-                      final r = entry.value;
-                      final semanaActual = _semanaDelAnio(_fecha);
-                      final maxSemana = math.max(53, rotacion.isEmpty ? semanaActual : rotacion.map((x) => x.semanaOrden).reduce(math.max));
-                      final semanaValue = r.semanaOrden <= 0 ? _semanaDelAnio(_fecha) : r.semanaOrden;
-                      final turnoValue = _valorDropdownValido(r.turnoId, turnos);
-                      return Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(10),
-                          child: Row(
-                            children: [
-                              SizedBox(
-                                width: 82,
-                                child: DropdownButtonFormField<int>(
-                                  value: semanaValue,
-                                  items: List.generate((maxSemana - semanaActual) + 1, (idx) => semanaActual + idx)
-                                      .map((w) => DropdownMenuItem<int>(value: w, child: Text('Semana del año $w')))
-                                      .toList(),
-                                  onChanged: (value) {
-                                    if (value == null) return;
-                                    setDialogState(() => rotacion[i] = RotacionTurnoMolino(
-                                      semanaOrden: value,
-                                      turnoId: r.turnoId,
-                                      fechaInicio: r.fechaInicio ?? DateFormat('yyyy-MM-dd').format(_fecha),
-                                      fechaFin: r.fechaFin,
-                                    ));
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: DropdownButtonFormField<int>(
-                                  value: turnoValue,
-                                  items: turnos.map<DropdownMenuItem<int>>((t) => DropdownMenuItem<int>(value: t.id, child: Text('${t.nombre} ${t.horaInicio ?? ''}-${t.horaFin ?? ''}'))).toList(),
-                                  onChanged: (value) {
-                                    if (value == null) return;
-                                    setDialogState(() => rotacion[i] = RotacionTurnoMolino(
-                                      semanaOrden: r.semanaOrden,
-                                      turnoId: value,
-                                      fechaInicio: r.fechaInicio ?? DateFormat('yyyy-MM-dd').format(_fecha),
-                                      fechaFin: r.fechaFin,
-                                    ));
-                                  },
-                                  decoration: const InputDecoration(labelText: 'Turno'),
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: 'Quitar semana',
-                                onPressed: rotacion.length == 1 ? null : () => setDialogState(() => rotacion.removeAt(i)),
-                                icon: const Icon(Icons.delete_outline),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: turnos.isEmpty ? null : () => setDialogState(() {
-                          final nextWeek = rotacion.isEmpty ? _semanaDelAnio(_fecha) : (rotacion.map((r) => r.semanaOrden).reduce(math.max) + 1);
-                          rotacion.add(RotacionTurnoMolino(
-                            semanaOrden: nextWeek,
-                            turnoId: turnos.first.id,
-                            fechaInicio: DateFormat('yyyy-MM-dd').format(_fecha),
-                          ));
-                        }),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Agregar semana'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-              ElevatedButton(
-                onPressed: () async {
-                  try {
-                    await service.guardarRotacionEmpleado(empleadoId: e.id, rotacion: rotacion);
-                    if (mounted) Navigator.pop(context);
-                    _ok('Rotación semanal actualizada');
-                  } catch (err) {
-                    _showError(err);
-                  }
-                },
-                child: const Text('Guardar rotación'),
-              ),
-            ],
-          );
-        },
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar'))],
       ),
     );
   }
@@ -1137,13 +740,6 @@ class _MolinosScreenState extends State<MolinosScreen> {
       ),
       child: Text(text, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
     );
-  }
-
-  int _semanaDelAnio(DateTime date) {
-    final thursday = date.add(Duration(days: 4 - (date.weekday == 7 ? 7 : date.weekday)));
-    final firstThursday = DateTime(thursday.year, 1, 4);
-    final week = 1 + ((thursday.difference(firstThursday).inDays + (firstThursday.weekday == 7 ? 7 : firstThursday.weekday) - 1) ~/ 7);
-    return week.clamp(1, 53);
   }
 
   @override
@@ -1260,10 +856,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
               return ChoiceChip(
                 selected: selected,
                 label: Text(turno),
-                onSelected: (_) async {
-                  setState(() => _turnoFiltro = turno);
-                  await _load();
-                },
+                onSelected: (_) => setState(() => _turnoFiltro = turno),
               );
             }).toList(),
           ),
@@ -1276,7 +869,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    '${_turnoFiltro == _turnoAutomaticoInicial() ? 'TURNO ACTUAL · Ya comenzó $_turnoFiltro · ' : ''}${_relojJornada(_turnoFiltro)}',
+                    _relojJornada(_turnoFiltro),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w700),
@@ -1322,9 +915,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
 
   Widget _panelEmpleados(bool canEdit) {
     final t = _tablero!;
-    final empleadosDelTurno = _filtrarEmpleados(t.empleadosTurno)
-        .where((e) => e.maquinaId == null)
-        .toList();
+    final empleadosDelTurno = _filtrarEmpleados(t.empleadosTurno);
     final espera = _filtrarEmpleados(t.espera);
     final lavadores = espera.where(_esLavador).toList();
     final otrosEspera = espera.where((e) => !_esLavador(e)).toList();
@@ -1490,13 +1081,6 @@ class _EmpleadoChip extends StatelessWidget {
     }
   }
 
-  int _semanaDelAnio(DateTime date) {
-    final thursday = date.add(Duration(days: 4 - (date.weekday == 7 ? 7 : date.weekday)));
-    final firstThursday = DateTime(thursday.year, 1, 4);
-    final week = 1 + ((thursday.difference(firstThursday).inDays + (firstThursday.weekday == 7 ? 7 : firstThursday.weekday) - 1) ~/ 7);
-    return week.clamp(1, 53);
-  }
-
   @override
   Widget build(BuildContext context) {
     final turnoColor = _colorFromName(empleado.turnoColor);
@@ -1543,15 +1127,6 @@ class _EmpleadoChip extends StatelessWidget {
                         style: TextStyle(color: turnoColor, fontSize: 11, fontWeight: FontWeight.bold),
                       ),
                     ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      empleado.resumenChecadas,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: empleado.presente ? Colors.green.shade800 : Colors.red.shade700, fontSize: 11, fontWeight: FontWeight.w600),
-                    ),
-                  ),
                   if (!empleado.turnoEnHorario)
                     Container(
                       margin: const EdgeInsets.only(top: 4),
@@ -1609,13 +1184,6 @@ class _EstadoAnimadoIconState extends State<_EstadoAnimadoIcon> with SingleTicke
       default:
         return Icons.circle;
     }
-  }
-
-  int _semanaDelAnio(DateTime date) {
-    final thursday = date.add(Duration(days: 4 - (date.weekday == 7 ? 7 : date.weekday)));
-    final firstThursday = DateTime(thursday.year, 1, 4);
-    final week = 1 + ((thursday.difference(firstThursday).inDays + (firstThursday.weekday == 7 ? 7 : firstThursday.weekday) - 1) ~/ 7);
-    return week.clamp(1, 53);
   }
 
   @override
@@ -1695,7 +1263,6 @@ class _MaquinaMolinoCard extends StatelessWidget {
     }
   }
 
-
   Color _colorSemaforo(String? semaforo) {
     switch ((semaforo ?? '').toLowerCase()) {
       case 'rojo':
@@ -1730,13 +1297,6 @@ class _MaquinaMolinoCard extends StatelessWidget {
       ),
       child: Text(_estadoLabel(estado), style: TextStyle(fontSize: 11, color: selected ? color : Colors.black87, fontWeight: FontWeight.bold)),
     );
-  }
-
-  int _semanaDelAnio(DateTime date) {
-    final thursday = date.add(Duration(days: 4 - (date.weekday == 7 ? 7 : date.weekday)));
-    final firstThursday = DateTime(thursday.year, 1, 4);
-    final week = 1 + ((thursday.difference(firstThursday).inDays + (firstThursday.weekday == 7 ? 7 : firstThursday.weekday) - 1) ~/ 7);
-    return week.clamp(1, 53);
   }
 
   @override

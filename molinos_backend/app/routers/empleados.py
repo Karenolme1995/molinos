@@ -63,6 +63,19 @@ def hoy() -> date:
     return date.today()
 
 
+def _normalizar_status_activo(status: Optional[str], activo: Optional[int] = 1):
+    texto = (status or "ACTIVO").strip().upper()
+    try:
+        activo_int = int(activo if activo is not None else 1)
+    except Exception:
+        activo_int = 1
+
+    if texto in ("INACTIVO", "INACTIVA", "BAJA", "0") or activo_int == 0:
+        return "INACTIVO", 0
+
+    return "ACTIVO", 1
+
+
 def _parse_fecha(value, fallback: date | None = None) -> date:
     if isinstance(value, date):
         return value
@@ -317,12 +330,13 @@ def listar(q: str = "", departamento: str = "", turno_id: Optional[int] = None, 
 
 @router.post("")
 def crear(data: EmpleadoIn, user=Depends(require_admin_or_supervisor)):
+    status, activo = _normalizar_status_activo(data.status, data.activo)
     new_id = execute(
         """
         INSERT INTO empleados(numero_nomina, nombre, foto, puesto, responsabilidades, fecha_nacimiento, telefono, direccion, status, departamento, activo)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """,
-        (data.numero_nomina, data.nombre, data.foto, data.puesto, data.responsabilidades, data.fecha_nacimiento, data.telefono, data.direccion, data.status, data.departamento, data.activo),
+        (data.numero_nomina, data.nombre, data.foto, data.puesto, data.responsabilidades, data.fecha_nacimiento, data.telefono, data.direccion, status, data.departamento, activo),
     )
     return {"id": new_id, "message": "Empleado creado. Configura su rotación semanal desde la lista."}
 
@@ -340,13 +354,14 @@ def obtener(empleado_id: int, user=Depends(get_current_user)):
 @router.put("/{empleado_id}")
 def actualizar(empleado_id: int, data: EmpleadoIn, user=Depends(require_admin_or_supervisor)):
     validar_empleado(empleado_id)
+    status, activo = _normalizar_status_activo(data.status, data.activo)
     execute(
         """
-        UPDATE empleados SET numero_nomina=%s, nombre=%s, foto=%s, puesto=%s, responsabilidades=%s,
+        UPDATE empleados SET numero_nomina=%s, nombre=%s, foto=COALESCE(NULLIF(%s, ''), foto), puesto=%s, responsabilidades=%s,
             fecha_nacimiento=%s, telefono=%s, direccion=%s, status=%s, departamento=%s, activo=%s
         WHERE id=%s
         """,
-        (data.numero_nomina, data.nombre, data.foto, data.puesto, data.responsabilidades, data.fecha_nacimiento, data.telefono, data.direccion, data.status, data.departamento, data.activo, empleado_id),
+        (data.numero_nomina, data.nombre, data.foto, data.puesto, data.responsabilidades, data.fecha_nacimiento, data.telefono, data.direccion, status, data.departamento, activo, empleado_id),
     )
     return {"message": "Empleado actualizado. El turno solo se modifica desde rotación semanal."}
 
