@@ -1,4 +1,3 @@
-
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -7,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/auth_service.dart';
 import '../app_shell.dart';
+import 'checador_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -142,6 +142,17 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
+
+  Future<void> _abrirChecador() async {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChecadorScreen(
+          getToken: () async => null,
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _bgController.dispose();
@@ -262,7 +273,7 @@ class _LoginScreenState extends State<LoginScreen>
                   ],
                 ),
                 child: Image.asset(
-                  'assets/images/logo.png',
+                  'images/logo.png',
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) {
                     return const Icon(
@@ -519,6 +530,30 @@ class _LoginScreenState extends State<LoginScreen>
                           letterSpacing: 1.2,
                         ),
                       ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: OutlinedButton.icon(
+                onPressed: _loading ? null : _abrirChecador,
+                icon: const Icon(Icons.fingerprint_rounded),
+                label: const Text(
+                  'CHECADOR',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: azul,
+                  side: const BorderSide(color: azul, width: 1.6),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 24),

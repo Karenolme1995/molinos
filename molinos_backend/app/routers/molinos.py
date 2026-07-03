@@ -45,6 +45,7 @@ class EmpleadoMolinosUpdateIn(BaseModel):
     telefono: str | None = None
     direccion: str | None = None
     status: str | None = None
+    activo: int | None = None
 
 
 class EmpleadoTurnoUpdateIn(BaseModel):
@@ -758,7 +759,9 @@ def tablero(fecha_jornada: str, turno: str = 'TURNO 1', vista: str = 'dia', user
         LEFT JOIN maquinas_estado_actual mea ON mea.maquina_id = m.id
         LEFT JOIN maquina_estados me ON me.id = mea.estado_id
         WHERE m.activo = 1 AND UPPER(a.nombre) = UPPER('MOLINOS')
-        ORDER BY m.nombre
+        ORDER BY
+          CAST(NULLIF(TRIM(REPLACE(REPLACE(REPLACE(UPPER(m.nombre), 'MOLINO', ''), '#', ''), '-', '')), '') AS UNSIGNED),
+          m.nombre
         """
     )
 
@@ -881,7 +884,6 @@ def tablero(fecha_jornada: str, turno: str = 'TURNO 1', vista: str = 'dia', user
 
         empleado['turno_en_horario'] = _en_horario(empleado.get('turno_hora_inicio'), empleado.get('turno_hora_fin'))
         empleado['turno_por_concluir'] = _turno_por_concluir(empleado.get('turno_hora_inicio'), empleado.get('turno_hora_fin'))
-        empleados_turno.append(empleado)
 
         # La asignación a máquina permanece hasta que el usuario arrastre el empleado a espera.
         # La salida de asistencia no borra la máquina asignada porque debe permanecer para el siguiente día.
@@ -890,12 +892,14 @@ def tablero(fecha_jornada: str, turno: str = 'TURNO 1', vista: str = 'dia', user
             alertas.append(empleado)
 
         if _es_supervisor_o_encargado(empleado['puesto']):
-            # Los encargados/supervisores se muestran arriba aunque aún no sea su hora
-            # o aunque todavía no hayan checado entrada, para respetar la pestaña del turno.
+            # Los encargados/supervisores se muestran solo en la barra superior,
+            # no en la lista lateral de empleados.
             supervisores.append(empleado)
             if not empleado['presente']:
                 ausentes.append(empleado)
             continue
+
+        empleados_turno.append(empleado)
 
         if empleado['maquina_id']:
             # Si ya está asignado a un molino se muestra en el molino, esté o no dentro
@@ -983,7 +987,7 @@ def crear_empleado_molinos(data: EmpleadoMolinosUpdateIn, user=Depends(require_a
     new_id = execute(
         """
         INSERT INTO empleados(numero_nomina, nombre, puesto, responsabilidades, departamento, telefono, direccion, status, activo)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 1)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             data.numero_nomina,
@@ -994,6 +998,7 @@ def crear_empleado_molinos(data: EmpleadoMolinosUpdateIn, user=Depends(require_a
             data.telefono,
             data.direccion,
             data.status or 'ACTIVO',
+            1 if data.activo is None else data.activo,
         ),
     )
     return {'id': new_id, 'message': 'Empleado creado'}
@@ -1030,7 +1035,8 @@ def actualizar_empleado_molinos(empleado_id: int, data: EmpleadoMolinosUpdateIn,
             departamento = COALESCE(%s, departamento),
             telefono = COALESCE(%s, telefono),
             direccion = COALESCE(%s, direccion),
-            status = COALESCE(%s, status)
+            status = COALESCE(%s, status),
+            activo = COALESCE(%s, activo)
         WHERE id = %s
         """,
         (
@@ -1042,6 +1048,7 @@ def actualizar_empleado_molinos(empleado_id: int, data: EmpleadoMolinosUpdateIn,
             data.telefono,
             data.direccion,
             data.status,
+            data.activo,
             empleado_id,
         ),
     )

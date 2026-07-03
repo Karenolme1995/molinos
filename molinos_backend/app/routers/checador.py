@@ -126,6 +126,7 @@ def get_empleado(db, empleado_id: int):
                 id,
                 numero_nomina,
                 nombre,
+                foto,
                 puesto,
                 departamento,
                 activo
@@ -147,6 +148,7 @@ def get_empleado_por_nomina(db, numero_nomina: str):
                 id,
                 numero_nomina,
                 nombre,
+                foto,
                 puesto,
                 departamento,
                 activo
@@ -508,9 +510,7 @@ def registrar_checada_empleado(db, empleado):
 
 
 @router.get("/hora")
-def hora_mexico(
-    user=Depends(get_current_user),
-):
+def hora_mexico():
     ahora = now_mx()
 
     return {
@@ -520,7 +520,6 @@ def hora_mexico(
         "dia_semana": ahora.strftime("%A"),
         "datetime": ahora.isoformat(),
     }
-
 
 @router.get("/estado/{empleado_id}")
 def estado_checador(
@@ -583,9 +582,8 @@ def checar(
 def checar_por_nomina(
     data: ChecadaNominaCreate,
     db=Depends(get_db),
-    user=Depends(get_current_user),
 ):
-    numero_nomina = data.numero_nomina.strip()
+    numero_nomina = (data.numero_nomina or '').strip()
 
     if not numero_nomina:
         raise HTTPException(

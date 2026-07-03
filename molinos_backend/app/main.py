@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, usuarios, empleados, maquinas, molinos, asistencias, checador
+from app.routers import auth, usuarios, empleados, maquinas, molinos, asistencias, checador, bitacoras
 from fastapi.staticfiles import StaticFiles
 
 
@@ -26,6 +26,7 @@ app.include_router(maquinas.router, prefix="/api/v1/maquinas", tags=["Maquinas"]
 app.include_router(molinos.router, prefix="/api/v1/molinos", tags=["Molinos"])
 app.include_router(asistencias.router, prefix="/api/v1/asistencias", tags=["Asistencias"])
 app.include_router(checador.router, prefix="/api/v1/checador", tags=["Checador"])
+app.include_router(bitacoras.router, prefix="/api/v1/bitacoras", tags=["Bitacoras"])
 
 @app.get("/")
 def root():

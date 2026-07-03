@@ -20,7 +20,9 @@ def listar(area: str = 'MOLINOS', user=Depends(get_current_user)):
         LEFT JOIN maquinas_estado_actual mea ON mea.maquina_id = m.id
         LEFT JOIN maquina_estados me ON me.id = mea.estado_id
         WHERE m.activo = 1 AND (%s = '' OR UPPER(a.nombre) = UPPER(%s))
-        ORDER BY m.nombre
+        ORDER BY
+          CAST(NULLIF(TRIM(REPLACE(REPLACE(REPLACE(UPPER(m.nombre), 'MOLINO', ''), '#', ''), '-', '')), '') AS UNSIGNED),
+          m.nombre
         """,
         (area, area),
     )

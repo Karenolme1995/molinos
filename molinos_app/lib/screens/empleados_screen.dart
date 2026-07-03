@@ -295,8 +295,19 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
     reader.readAsArrayBuffer(file);
     await reader.onLoad.first;
 
-    final buffer = reader.result as ByteBuffer;
-    final bytes = Uint8List.fromList(buffer.asUint8List());
+    final result = reader.result;
+    late final Uint8List bytes;
+
+    if (result is ByteBuffer) {
+      bytes = Uint8List.view(result);
+    } else if (result is Uint8List) {
+      bytes = result;
+    } else if (result is List<int>) {
+      bytes = Uint8List.fromList(result);
+    } else {
+      throw Exception('No se pudo leer la foto seleccionada. Intenta con otra imagen JPG, PNG o WEBP.');
+    }
+
     return _FotoSeleccionada(bytes: bytes, filename: file.name.isEmpty ? 'empleado.jpg' : file.name);
   }
 

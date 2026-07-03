@@ -8,6 +8,7 @@ import 'screens/empleados_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/asistencias_screen.dart';
 import 'screens/checador_screen.dart';
+import 'screens/bitacoras_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -23,10 +24,13 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
 
-    final pages = [
+    final pages = <Widget>[
       const MolinosScreen(),
       const UsuariosScreen(),
       const EmpleadosScreen(),
+      BitacorasScreen(
+        getToken: auth.getToken,
+      ),
       AsistenciasScreen(
         getToken: auth.getToken,
       ),
@@ -34,6 +38,43 @@ class _AppShellState extends State<AppShell> {
         getToken: auth.getToken,
       ),
     ];
+
+    final destinations = const <NavigationRailDestination>[
+      NavigationRailDestination(
+        icon: Icon(Icons.precision_manufacturing),
+        selectedIcon: Icon(Icons.precision_manufacturing),
+        label: Text('Molinos'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.manage_accounts),
+        selectedIcon: Icon(Icons.manage_accounts),
+        label: Text('Usuarios'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.badge),
+        selectedIcon: Icon(Icons.badge),
+        label: Text('Empleados'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.assignment),
+        selectedIcon: Icon(Icons.assignment),
+        label: Text('Bitácoras'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.fact_check),
+        selectedIcon: Icon(Icons.fact_check),
+        label: Text('Asistencia'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.fingerprint),
+        selectedIcon: Icon(Icons.fingerprint),
+        label: Text('Checador'),
+      ),
+    ];
+
+    if (_index >= pages.length) {
+      _index = 0;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -44,6 +85,7 @@ class _AppShellState extends State<AppShell> {
             child: Center(
               child: Text(
                 '${auth.user?['nombre'] ?? ''} (${auth.user?['tipo'] ?? ''})',
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),
@@ -75,32 +117,14 @@ class _AppShellState extends State<AppShell> {
               });
             },
             labelType: NavigationRailLabelType.all,
-            destinations: const [
-              NavigationRailDestination(
-                icon: Icon(Icons.precision_manufacturing),
-                label: Text('Molinos'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.manage_accounts),
-                label: Text('Usuarios'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.badge),
-                label: Text('Empleados'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.fact_check),
-                label: Text('Asistencia'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.fingerprint),
-                label: Text('Checador'),
-              ),
-            ],
+            destinations: destinations,
           ),
           const VerticalDivider(width: 1),
           Expanded(
-            child: pages[_index],
+            child: IndexedStack(
+              index: _index,
+              children: pages,
+            ),
           ),
         ],
       ),

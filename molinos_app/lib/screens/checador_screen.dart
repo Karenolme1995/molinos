@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../services/asistencias_service.dart';
+import '../services/api_service.dart';
 
 class ChecadorScreen extends StatefulWidget {
   final Future<String?> Function() getToken;
@@ -406,6 +407,46 @@ class _ChecadorScreenState extends State<ChecadorScreen> {
     );
   }
 
+
+  String? _fotoEmpleadoUrl(dynamic value) {
+    final foto = value?.toString().trim() ?? '';
+    if (foto.isEmpty) return null;
+    return ApiService.fileUrl(foto);
+  }
+
+  Widget _fotoEmpleado(dynamic foto) {
+    final url = _fotoEmpleadoUrl(foto);
+
+    Widget fallback() {
+      return Container(
+        width: 112,
+        height: 112,
+        decoration: BoxDecoration(
+          color: Colors.blueGrey.shade100,
+          shape: BoxShape.circle,
+        ),
+        alignment: Alignment.center,
+        child: Icon(
+          Icons.person,
+          size: 58,
+          color: Colors.blueGrey.shade700,
+        ),
+      );
+    }
+
+    if (url == null) return fallback();
+
+    return ClipOval(
+      child: Image.network(
+        url,
+        width: 112,
+        height: 112,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => fallback(),
+      ),
+    );
+  }
+
   Widget _resultadoCard() {
     final data = _resultado;
 
@@ -443,10 +484,25 @@ class _ChecadorScreenState extends State<ChecadorScreen> {
               ],
             ),
             const Divider(height: 28),
-            _info('Empleado', empleado['nombre']),
-            _info('Nómina', empleado['numero_nomina']),
-            _info('Puesto', empleado['puesto']),
-            _info('Departamento', empleado['departamento']),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _fotoEmpleado(empleado['foto']),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _info('Empleado', empleado['nombre']),
+                      _info('Nómina', empleado['numero_nomina']),
+                      _info('Puesto', empleado['puesto']),
+                      _info('Departamento', empleado['departamento']),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             _info('Checada registrada', data['tipo_label']),
             _info('Hora', data['hora']),
             const SizedBox(height: 12),

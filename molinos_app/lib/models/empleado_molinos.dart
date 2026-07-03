@@ -127,6 +127,28 @@ class EmpleadoMolinos {
     return '${turnoHoraInicio ?? '--:--'} - ${turnoHoraFin ?? '--:--'}';
   }
 
+
+  String get resumenChecadas {
+    final partes = <String>[];
+
+    if ((horaEntrada ?? '').trim().isNotEmpty) {
+      partes.add('Entrada: ${horaEntrada!.trim()}');
+    }
+    if ((horaSalidaComida ?? '').trim().isNotEmpty) {
+      partes.add('Salida comida: ${horaSalidaComida!.trim()}');
+    }
+    if ((horaRegresoComida ?? '').trim().isNotEmpty) {
+      partes.add('Regreso comida: ${horaRegresoComida!.trim()}');
+    }
+    if ((horaSalida ?? '').trim().isNotEmpty) {
+      partes.add('Salida: ${horaSalida!.trim()}');
+    }
+
+    if (partes.isNotEmpty) return partes.join(' · ');
+    if (!presente) return 'No se presentó';
+    return 'Sin checadas registradas';
+  }
+
   static int _asInt(dynamic value) {
     if (value is int) return value;
     return int.tryParse(value?.toString() ?? '') ?? 0;
