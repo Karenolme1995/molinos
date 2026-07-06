@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, usuarios, empleados, maquinas, molinos, asistencias, checador, bitacoras
+from app.routers import auth, usuarios, empleados, maquinas, molinos, asistencias, checador, bitacoras,areas
 from fastapi.staticfiles import StaticFiles
 
 
@@ -14,11 +14,23 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=[
+        "http://localhost",
+        "http://localhost:8000",
+        "http://localhost:8080",
+        "http://127.0.0.1",
+        "http://127.0.0.1:8000",
+        "http://127.0.0.1:8080",
+        "http://10.1.1.17",
+        "http://10.1.1.17:8000",
+        "http://10.1.1.17:8080",
+    ],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1|10\.1\.1\.17)(:\d+)?",
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(usuarios.router, prefix="/api/v1/usuarios", tags=["Usuarios"])
 app.include_router(empleados.router, prefix="/api/v1/empleados", tags=["Empleados"])
@@ -27,6 +39,8 @@ app.include_router(molinos.router, prefix="/api/v1/molinos", tags=["Molinos"])
 app.include_router(asistencias.router, prefix="/api/v1/asistencias", tags=["Asistencias"])
 app.include_router(checador.router, prefix="/api/v1/checador", tags=["Checador"])
 app.include_router(bitacoras.router, prefix="/api/v1/bitacoras", tags=["Bitacoras"])
+app.include_router(areas.router, prefix="/api/v1/areas", tags=["Areas"])
+
 
 @app.get("/")
 def root():
