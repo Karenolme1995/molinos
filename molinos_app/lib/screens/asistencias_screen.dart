@@ -23,6 +23,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
   late final AsistenciasService _service;
 
   final TextEditingController _buscarController = TextEditingController();
+  final ScrollController _matrizHorizontalController = ScrollController();
   Timer? _buscarDebounce;
 
   bool _loading = true;
@@ -35,7 +36,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
 
   String _q = '';
   int _pagina = 0;
-  int _filasPorPagina = 25;
+  int _filasPorPagina = 500;
 
   List<dynamic> _presentes = [];
   List<dynamic> _ausentes = [];
@@ -44,7 +45,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
   List<dynamic> _acotaciones = [];
   List<dynamic> _castigos = [];
 
-  final List<int> _opcionesFilas = const [10, 25, 50, 100];
+  final List<int> _opcionesFilas = const [25, 50, 100, 200, 500];
 
   final List<String> _meses = const [
     'Enero',
@@ -84,6 +85,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
   void dispose() {
     _buscarDebounce?.cancel();
     _buscarController.dispose();
+    _matrizHorizontalController.dispose();
     super.dispose();
   }
 
@@ -96,6 +98,8 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
     });
 
     try {
+      // Consulta optimizada: se evita llamar /checador/castigos en cada carga.
+      // Si el backend manda castigos dentro del tablero, se usan; si no, queda vacío.
       final result = await Future.wait([
         _service.getTablero(
           fecha: _fecha,
@@ -107,13 +111,11 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
           departamento: 'MOLINOS',
         ),
         _service.getAcotaciones(),
-        _service.getCastigos(),
       ]);
 
       final tablero = Map<String, dynamic>.from(result[0] as Map);
       final matriz = Map<String, dynamic>.from(result[1] as Map);
       final acotaciones = List<dynamic>.from(result[2] as List);
-      final castigos = Map<String, dynamic>.from(result[3] as Map);
 
       if (!mounted) return;
 
@@ -123,7 +125,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
         _conAcotacion = List<dynamic>.from(tablero['con_acotacion'] ?? []);
         _empleadosMatriz = List<dynamic>.from(matriz['empleados'] ?? []);
         _acotaciones = acotaciones;
-        _castigos = List<dynamic>.from(castigos['empleados'] ?? []);
+        _castigos = List<dynamic>.from(tablero['castigos'] ?? []);
         _pagina = 0;
         _loading = false;
       });
@@ -290,14 +292,24 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
 
+    lista.sort((a, b) {
+      final ta = _turnoTexto(a);
+      final tb = _turnoTexto(b);
+      final pa = _ordenTurnos([ta, tb]).indexOf(ta);
+      final pb = _ordenTurnos([ta, tb]).indexOf(tb);
+      if (pa != pb) return pa.compareTo(pb);
+      return (a['nombre'] ?? '').toString().compareTo((b['nombre'] ?? '').toString());
+    });
+
     if (_q.isEmpty) return lista;
 
     return lista.where((emp) {
       final nomina = (emp['numero_nomina'] ?? emp['nomina'] ?? '').toString();
       final nombre = (emp['nombre'] ?? '').toString();
       final puesto = (emp['puesto'] ?? '').toString();
+      final turno = _turnoTexto(emp);
 
-      final texto = '$nomina $nombre $puesto'.toLowerCase();
+      final texto = '$nomina $nombre $puesto $turno'.toLowerCase();
       return texto.contains(_q);
     }).toList();
   }
@@ -378,7 +390,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
                   _info('Nómina', emp['numero_nomina'] ?? emp['nomina']),
                   _info('Puesto', emp['puesto']),
                   _info('Departamento', emp['departamento']),
-                  _info('Turno', emp['turno']),
+                  _info('Turno', _turnoTexto(emp)),
                   _info('Máquina', emp['maquina_nombre']),
                   _info('Entrada', emp['entrada']),
                   _info('Salida comida', emp['salida_comida']),
@@ -552,44 +564,173 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
     );
   }
 
+
+  String _turnoTexto(Map<String, dynamic> emp) {
+    final raw = (
+      emp['turno'] ??
+      emp['turno_nombre'] ??
+      emp['nombre_turno'] ??
+      emp['turno_actual'] ??
+      emp['turno_descripcion'] ??
+      ''
+    ).toString().trim();
+
+    if (raw.isNotEmpty && raw.toLowerCase() != 'null') {
+      return raw.toUpperCase();
+    }
+
+    final turnoId = emp['turno_id'] ?? emp['id_turno'];
+    if (turnoId != null && turnoId.toString().trim().isNotEmpty) {
+      return 'TURNO ${turnoId.toString().trim()}';
+    }
+
+    return 'SIN TURNO';
+  }
+
+  Color _colorTurno(String turno, {String? colorDb}) {
+    final c = (colorDb ?? '').toLowerCase().trim();
+    if (c.contains('verde')) return Colors.green;
+    if (c.contains('naranja')) return Colors.orange;
+    if (c.contains('azul')) return Colors.blue;
+    if (c.contains('rosa')) return Colors.pink;
+    if (c.contains('morado')) return Colors.deepPurple;
+    if (c.contains('rojo')) return Colors.red;
+
+    final t = turno.toUpperCase();
+    if (t.contains('1')) return Colors.green;
+    if (t.contains('2')) return Colors.orange;
+    if (t.contains('3')) return Colors.blue;
+    if (t.contains('MIX')) return Colors.pink;
+    if (t.contains('MAT')) return Colors.green;
+    if (t.contains('VES')) return Colors.orange;
+    if (t.contains('NOC')) return Colors.blue;
+    return Colors.blueGrey;
+  }
+
+  List<String> _ordenTurnos(Iterable<String> turnos) {
+    final list = turnos.toList();
+    int peso(String turno) {
+      final t = turno.toUpperCase();
+      if (t.contains('1')) return 1;
+      if (t.contains('2')) return 2;
+      if (t.contains('3')) return 3;
+      if (t == 'SIN TURNO') return 99;
+      return 50;
+    }
+
+    list.sort((a, b) {
+      final pa = peso(a);
+      final pb = peso(b);
+      if (pa != pb) return pa.compareTo(pb);
+      return a.compareTo(b);
+    });
+    return list;
+  }
+
+  Map<String, List<Map<String, dynamic>>> _agruparPorTurno(List<dynamic> empleados) {
+    final grupos = <String, List<Map<String, dynamic>>>{};
+
+    for (final item in empleados) {
+      final emp = Map<String, dynamic>.from(item as Map);
+      final turno = _turnoTexto(emp);
+      grupos.putIfAbsent(turno, () => <Map<String, dynamic>>[]).add(emp);
+    }
+
+    return grupos;
+  }
+
   Widget _empleadoCard(
     Map<String, dynamic> emp, {
     required bool alerta,
+    bool compacto = false,
   }) {
     final acotacion = emp['acotacion']?.toString();
+    final turno = _turnoTexto(emp);
+    final turnoColor = _colorTurno(turno, colorDb: emp['turno_color']?.toString());
+    final nombre = emp['nombre']?.toString() ?? '';
+    final nomina = (emp['numero_nomina'] ?? emp['nomina'] ?? '-').toString();
+    final puesto = (emp['puesto'] ?? '-').toString();
+    final maquina = (emp['maquina_nombre'] ?? '').toString();
 
     return Card(
-      elevation: 1,
+      elevation: 0,
+      margin: EdgeInsets.only(bottom: compacto ? 6 : 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: turnoColor.withOpacity(.35)),
+      ),
       child: ListTile(
+        dense: compacto,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: compacto ? 8 : 12,
+          vertical: compacto ? 2 : 4,
+        ),
         onTap: () => _mostrarDetalleEmpleado(emp),
         leading: CircleAvatar(
+          radius: compacto ? 17 : 20,
           backgroundColor: acotacion != null
               ? _colorAcotacion(acotacion)
               : alerta
                   ? Colors.red
-                  : Colors.green,
+                  : turnoColor,
           child: acotacion != null
               ? Text(
                   acotacion,
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
-                    fontSize: 11,
+                    fontSize: 10,
                   ),
                 )
               : Icon(
                   alerta ? Icons.warning : Icons.check,
                   color: Colors.white,
+                  size: compacto ? 17 : 20,
                 ),
         ),
         title: Text(
-          emp['nombre']?.toString() ?? '',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          nombre,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: compacto ? 12 : 14,
+          ),
         ),
-        subtitle: Text(
-          'Nómina: ${emp['numero_nomina'] ?? emp['nomina'] ?? '-'} | ${emp['puesto'] ?? '-'}',
-        ),
+        subtitle: compacto
+            ? Text(
+                '$nomina · $puesto',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11),
+              )
+            : Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text('Nómina: $nomina'),
+                  Text('· $puesto'),
+                  if (maquina.isNotEmpty) Text('· $maquina'),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: turnoColor.withOpacity(.12),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      turno,
+                      style: TextStyle(
+                        color: turnoColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
         trailing: PopupMenuButton<String>(
+          tooltip: 'Opciones',
           onSelected: (value) {
             if (value == 'detalle') {
               _mostrarDetalleEmpleado(emp);
@@ -614,100 +755,45 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
     );
   }
 
-  Widget _resumenCards() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isSmall = constraints.maxWidth < 850;
 
-        final cards = [
-          _contadorCard(
-            titulo: 'Presentes',
-            valor: _presentes.length.toString(),
-            color: Colors.green,
-            icon: Icons.check_circle,
-          ),
-          _contadorCard(
-            titulo: 'Ausentes',
-            valor: _ausentes.length.toString(),
-            color: Colors.red,
-            icon: Icons.warning,
-          ),
-          _contadorCard(
-            titulo: 'Castigos',
-            valor: _castigos.length.toString(),
-            color: Colors.deepOrange,
-            icon: Icons.gavel,
-          ),
-          _contadorCard(
-            titulo: 'Acotaciones',
-            valor: _conAcotacion.length.toString(),
-            color: Colors.orange,
-            icon: Icons.info,
-          ),
-        ];
-
-        if (isSmall) {
-          return Column(
-            children: [
-              cards[0],
-              const SizedBox(height: 10),
-              cards[1],
-              const SizedBox(height: 10),
-              cards[2],
-              const SizedBox(height: 10),
-              cards[3],
-            ],
-          );
-        }
-
-        return Row(
-          children: [
-            Expanded(child: cards[0]),
-            const SizedBox(width: 12),
-            Expanded(child: cards[1]),
-            const SizedBox(width: 12),
-            Expanded(child: cards[2]),
-            const SizedBox(width: 12),
-            Expanded(child: cards[3]),
-          ],
-        );
-      },
-    );
-  }
 
   Widget _contadorCard({
     required String titulo,
     required String valor,
     required Color color,
     required IconData icon,
+    bool compacto = false,
   }) {
     return Card(
       elevation: 1,
       child: Container(
-        padding: const EdgeInsets.all(18),
+        padding: EdgeInsets.all(compacto ? 10 : 18),
         child: Row(
           children: [
             CircleAvatar(
+              radius: compacto ? 16 : 20,
               backgroundColor: color,
-              child: Icon(icon, color: Colors.white),
+              child: Icon(icon, color: Colors.white, size: compacto ? 17 : 20),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Flexible(
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     titulo,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
+                    style: TextStyle(
+                      fontSize: compacto ? 11 : 13,
                       color: Colors.black54,
                     ),
                   ),
                   Text(
                     valor,
-                    style: const TextStyle(
-                      fontSize: 26,
+                    style: TextStyle(
+                      fontSize: compacto ? 20 : 26,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -723,7 +809,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
   Widget _listasAsistencia() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isSmall = constraints.maxWidth < 1100;
+        final isSmall = constraints.maxWidth < 900;
 
         final children = [
           _panelLista(
@@ -731,37 +817,38 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
             color: Colors.green,
             empleados: _presentes,
             alerta: false,
+            compacto: isSmall,
           ),
           _panelLista(
             titulo: 'Ausentes / No presentados',
             color: Colors.red,
             empleados: _ausentes,
             alerta: true,
+            compacto: isSmall,
           ),
           _panelLista(
             titulo: 'Castigo martes, miércoles o jueves',
             color: Colors.deepOrange,
             empleados: _castigos,
             alerta: true,
+            compacto: isSmall,
           ),
           _panelLista(
             titulo: 'Con acotación',
             color: Colors.orange,
             empleados: _conAcotacion,
             alerta: true,
+            compacto: isSmall,
           ),
         ];
 
         if (isSmall) {
           return Column(
             children: [
-              children[0],
-              const SizedBox(height: 12),
-              children[1],
-              const SizedBox(height: 12),
-              children[2],
-              const SizedBox(height: 12),
-              children[3],
+              for (int i = 0; i < children.length; i++) ...[
+                children[i],
+                if (i < children.length - 1) const SizedBox(height: 12),
+              ],
             ],
           );
         }
@@ -787,12 +874,17 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
     required Color color,
     required List<dynamic> empleados,
     required bool alerta,
+    bool compacto = false,
   }) {
+    final grupos = _agruparPorTurno(empleados);
+    final turnos = _ordenTurnos(grupos.keys);
+    final altura = compacto ? 390.0 : 330.0;
+
     return Card(
       elevation: 1,
       child: Container(
-        height: 330,
-        padding: const EdgeInsets.all(12),
+        height: altura,
+        padding: EdgeInsets.all(compacto ? 10 : 12),
         child: Column(
           children: [
             Row(
@@ -803,15 +895,22 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
                   child: Text(
                     titulo,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: compacto ? 14 : 16,
                     ),
                   ),
                 ),
-                Text(
-                  empleados.length.toString(),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    empleados.length.toString(),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: color),
+                  ),
                 ),
               ],
             ),
@@ -822,11 +921,48 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
                       child: Text('Sin registros'),
                     )
                   : ListView.builder(
-                      itemCount: empleados.length,
+                      itemCount: turnos.length,
                       itemBuilder: (_, index) {
-                        return _empleadoCard(
-                          Map<String, dynamic>.from(empleados[index]),
-                          alerta: alerta,
+                        final turno = turnos[index];
+                        final rows = grupos[turno] ?? [];
+                        final turnoColor = _colorTurno(turno);
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              left: BorderSide(color: turnoColor, width: 4),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  margin: const EdgeInsets.only(bottom: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: turnoColor.withOpacity(.10),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    '$turno · ${rows.length}',
+                                    style: TextStyle(
+                                      color: turnoColor,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                ...rows.map((emp) => _empleadoCard(
+                                      emp,
+                                      alerta: alerta,
+                                      compacto: compacto,
+                                    )),
+                              ],
+                            ),
+                          ),
                         );
                       },
                     ),
@@ -837,18 +973,30 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
     );
   }
 
-  Widget _celdaDia(String? valor) {
+  bool _esDomingo(int dia) {
+    return DateTime(_anio, _mes, dia).weekday == DateTime.sunday;
+  }
+
+  Widget _celdaDia(String? valor, int dia) {
+    final domingo = _esDomingo(dia);
+    final baseColor = _colorValorDia(valor);
+
     return Tooltip(
-      message: _tooltipValorDia(valor),
+      message: domingo
+          ? 'Domingo · ${_tooltipValorDia(valor)}'
+          : _tooltipValorDia(valor),
       child: Container(
         width: 42,
         height: 30,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _colorValorDia(valor),
+          color: domingo && (valor == null || valor.isEmpty)
+              ? Colors.amber.shade100
+              : baseColor,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: Colors.black12,
+            color: domingo ? Colors.amber.shade700 : Colors.black12,
+            width: domingo ? 1.4 : 1,
           ),
         ),
         child: Text(
@@ -856,7 +1004,9 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
           style: TextStyle(
             fontSize: valor == 'A' || valor == 'ENT' || valor == 'F' ? 18 : 11,
             fontWeight: FontWeight.bold,
-            color: _colorTextoValorDia(valor),
+            color: domingo && (valor == null || valor.isEmpty)
+                ? Colors.amber.shade900
+                : _colorTextoValorDia(valor),
           ),
         ),
       ),
@@ -894,31 +1044,69 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
                 ),
               )
             else
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
+              Scrollbar(
+                controller: _matrizHorizontalController,
+                thumbVisibility: true,
+                trackVisibility: true,
+                child: SingleChildScrollView(
+                  controller: _matrizHorizontalController,
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
                   headingRowHeight: 44,
                   dataRowMinHeight: 38,
                   dataRowMaxHeight: 44,
                   columnSpacing: 14,
                   horizontalMargin: 12,
                   columns: [
+                    const DataColumn(label: Text('Turno')),
                     const DataColumn(label: Text('Nómina')),
                     const DataColumn(label: Text('Nombre')),
-                    const DataColumn(label: Text('Puesto')),
                     for (int d = 1; d <= diasMes; d++)
                       DataColumn(
-                        label: Text(
-                          _fechaCortaDia(d),
-                          style: const TextStyle(fontSize: 12),
+                        label: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _esDomingo(d) ? Colors.amber.shade100 : Colors.transparent,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            _fechaCortaDia(d),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: _esDomingo(d) ? FontWeight.w800 : FontWeight.normal,
+                              color: _esDomingo(d) ? Colors.amber.shade900 : Colors.black87,
+                            ),
+                          ),
                         ),
                       ),
                   ],
                   rows: pagina.map((emp) {
                     final dias = Map<String, dynamic>.from(emp['dias'] ?? {});
+                    final turno = _turnoTexto(emp);
+                    final turnoColor = _colorTurno(turno, colorDb: emp['turno_color']?.toString());
 
                     return DataRow(
                       cells: [
+                        DataCell(
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: turnoColor.withOpacity(.12),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(color: turnoColor.withOpacity(.35)),
+                            ),
+                            child: Text(
+                              turno,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: turnoColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
                         DataCell(
                           Text(
                             (emp['numero_nomina'] ?? emp['nomina'] ?? '')
@@ -927,29 +1115,21 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
                         ),
                         DataCell(
                           SizedBox(
-                            width: 220,
+                            width: 240,
                             child: Text(
                               emp['nombre']?.toString() ?? '',
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ),
-                        DataCell(
-                          SizedBox(
-                            width: 150,
-                            child: Text(
-                              emp['puesto']?.toString() ?? '',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
                         for (int d = 1; d <= diasMes; d++)
                           DataCell(
-                            _celdaDia(dias[d.toString()]?.toString()),
+                            _celdaDia(dias[d.toString()]?.toString(), d),
                           ),
                       ],
                     );
                   }).toList(),
+                  ),
                 ),
               ),
             const SizedBox(height: 10),
@@ -961,133 +1141,172 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
   }
 
   Widget _toolbarMatriz(int totalFiltrado) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        const Text(
-          'Matriz mensual de asistencia',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Chip(
-          avatar: const Icon(Icons.calendar_month, size: 18),
-          label: Text('${_meses[_mes - 1]} $_anio'),
-        ),
-        SizedBox(
-          width: 320,
-          child: TextField(
-            controller: _buscarController,
-            decoration: InputDecoration(
-              labelText: 'Buscar nómina, nombre o puesto',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _buscarController.text.isEmpty
-                  ? null
-                  : IconButton(
-                      tooltip: 'Limpiar búsqueda',
-                      onPressed: () {
-                        _buscarController.clear();
-                      },
-                      icon: const Icon(Icons.close),
-                    ),
-              border: const OutlineInputBorder(),
-              isDense: true,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmall = constraints.maxWidth < 720;
+        final searchWidth = isSmall ? constraints.maxWidth : 320.0;
+
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              'Matriz mensual de asistencia',
+              style: TextStyle(
+                fontSize: isSmall ? 15 : 17,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-        ),
-        Chip(
-          label: Text('$totalFiltrado de ${_empleadosMatriz.length} empleados'),
-        ),
-        OutlinedButton.icon(
-          onPressed: _exportando ? null : _exportarExcel,
-          icon: _exportando
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.download),
-          label: Text(_exportando ? 'Exportando...' : 'Exportar Excel'),
-        ),
-      ],
+            Chip(
+              avatar: const Icon(Icons.calendar_month, size: 18),
+              label: Text('${_meses[_mes - 1]} $_anio'),
+            ),
+            SizedBox(
+              width: searchWidth,
+              child: TextField(
+                controller: _buscarController,
+                decoration: InputDecoration(
+                  labelText: 'Buscar turno, nómina o nombre',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _buscarController.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Limpiar búsqueda',
+                          onPressed: () {
+                            _buscarController.clear();
+                          },
+                          icon: const Icon(Icons.close),
+                        ),
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+            ),
+            Chip(
+              label: Text('$totalFiltrado de ${_empleadosMatriz.length} empleados'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _exportando ? null : _exportarExcel,
+              icon: _exportando
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.download),
+              label: Text(_exportando ? 'Exportando...' : 'Exportar Excel'),
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _paginacionMatriz(int totalFiltrado) {
-    return Row(
-      children: [
-        Text(
-          'Mostrando $_inicioVista-$_finVista de $totalFiltrado',
-          style: const TextStyle(color: Colors.black54),
-        ),
-        const Spacer(),
-        const Text('Filas:'),
-        const SizedBox(width: 8),
-        DropdownButton<int>(
-          value: _filasPorPagina,
-          items: _opcionesFilas.map((value) {
-            return DropdownMenuItem<int>(
-              value: value,
-              child: Text(value.toString()),
-            );
-          }).toList(),
-          onChanged: (value) {
-            if (value == null) return;
-            setState(() {
-              _filasPorPagina = value;
-              _pagina = 0;
-            });
-          },
-        ),
-        IconButton(
-          tooltip: 'Primera página',
-          onPressed: _pagina <= 0
-              ? null
-              : () {
-                  setState(() {
-                    _pagina = 0;
-                  });
-                },
-          icon: const Icon(Icons.first_page),
-        ),
-        IconButton(
-          tooltip: 'Página anterior',
-          onPressed: _pagina <= 0
-              ? null
-              : () {
-                  setState(() {
-                    _pagina--;
-                  });
-                },
-          icon: const Icon(Icons.chevron_left),
-        ),
-        Text('Página ${_pagina + 1} de $_totalPaginas'),
-        IconButton(
-          tooltip: 'Página siguiente',
-          onPressed: _pagina >= _totalPaginas - 1
-              ? null
-              : () {
-                  setState(() {
-                    _pagina++;
-                  });
-                },
-          icon: const Icon(Icons.chevron_right),
-        ),
-        IconButton(
-          tooltip: 'Última página',
-          onPressed: _pagina >= _totalPaginas - 1
-              ? null
-              : () {
-                  setState(() {
-                    _pagina = _totalPaginas - 1;
-                  });
-                },
-          icon: const Icon(Icons.last_page),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmall = constraints.maxWidth < 720;
+
+        final controls = [
+          const Text('Filas:'),
+          DropdownButton<int>(
+            value: _filasPorPagina,
+            items: _opcionesFilas.map((value) {
+              return DropdownMenuItem<int>(
+                value: value,
+                child: Text(value.toString()),
+              );
+            }).toList(),
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() {
+                _filasPorPagina = value;
+                _pagina = 0;
+              });
+            },
+          ),
+          IconButton(
+            tooltip: 'Primera página',
+            visualDensity: VisualDensity.compact,
+            onPressed: _pagina <= 0
+                ? null
+                : () {
+                    setState(() {
+                      _pagina = 0;
+                    });
+                  },
+            icon: const Icon(Icons.first_page),
+          ),
+          IconButton(
+            tooltip: 'Página anterior',
+            visualDensity: VisualDensity.compact,
+            onPressed: _pagina <= 0
+                ? null
+                : () {
+                    setState(() {
+                      _pagina--;
+                    });
+                  },
+            icon: const Icon(Icons.chevron_left),
+          ),
+          Text('Página ${_pagina + 1} de $_totalPaginas'),
+          IconButton(
+            tooltip: 'Página siguiente',
+            visualDensity: VisualDensity.compact,
+            onPressed: _pagina >= _totalPaginas - 1
+                ? null
+                : () {
+                    setState(() {
+                      _pagina++;
+                    });
+                  },
+            icon: const Icon(Icons.chevron_right),
+          ),
+          IconButton(
+            tooltip: 'Última página',
+            visualDensity: VisualDensity.compact,
+            onPressed: _pagina >= _totalPaginas - 1
+                ? null
+                : () {
+                    setState(() {
+                      _pagina = _totalPaginas - 1;
+                    });
+                  },
+            icon: const Icon(Icons.last_page),
+          ),
+        ];
+
+        if (isSmall) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Mostrando $_inicioVista-$_finVista de $totalFiltrado',
+                style: const TextStyle(color: Colors.black54),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: controls,
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Text(
+              'Mostrando $_inicioVista-$_finVista de $totalFiltrado',
+              style: const TextStyle(color: Colors.black54),
+            ),
+            const Spacer(),
+            ...controls,
+          ],
+        );
+      },
     );
   }
 
@@ -1101,6 +1320,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
       'NR': 'No regresó',
       'FJ': 'Falta justificada',
       'V': 'Vacaciones',
+      'DOM': 'Domingo',
     };
 
     return Wrap(
@@ -1113,7 +1333,9 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
               ? Colors.green.shade100
               : e.key == '✕'
                   ? Colors.red.shade100
-                  : _colorValorDia(e.key),
+                  : e.key == 'DOM'
+                      ? Colors.amber.shade100
+                      : _colorValorDia(e.key),
         );
       }).toList(),
     );
@@ -1125,78 +1347,86 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
   }
 
   Widget _header() {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        const Icon(Icons.fact_check, size: 30),
-        const Text(
-          'Asistencias - Molinos',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        OutlinedButton.icon(
-          onPressed: _seleccionarFecha,
-          icon: const Icon(Icons.calendar_today),
-          label: Text('Día: ${_fechaTexto(_fecha)}'),
-        ),
-        SizedBox(
-          width: 180,
-          child: DropdownButtonFormField<int>(
-            value: _mes,
-            decoration: const InputDecoration(
-              labelText: 'Mes',
-              border: OutlineInputBorder(),
-              isDense: true,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmall = constraints.maxWidth < 720;
+        final mesWidth = isSmall ? (constraints.maxWidth - 10) / 2 : 180.0;
+        final anioWidth = isSmall ? (constraints.maxWidth - 10) / 2 : 130.0;
+
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Icon(Icons.fact_check, size: isSmall ? 24 : 30),
+            Text(
+              'Asistencias - Molinos',
+              style: TextStyle(
+                fontSize: isSmall ? 20 : 24,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            items: List.generate(12, (index) {
-              final value = index + 1;
-              return DropdownMenuItem<int>(
-                value: value,
-                child: Text(_meses[index]),
-              );
-            }),
-            onChanged: (value) {
-              if (value == null) return;
-              _cambiarMesAnio(mes: value);
-            },
-          ),
-        ),
-        SizedBox(
-          width: 130,
-          child: DropdownButtonFormField<int>(
-            value: _anio,
-            decoration: const InputDecoration(
-              labelText: 'Año',
-              border: OutlineInputBorder(),
-              isDense: true,
+            OutlinedButton.icon(
+              onPressed: _seleccionarFecha,
+              icon: const Icon(Icons.calendar_today),
+              label: Text('Día: ${_fechaTexto(_fecha)}'),
             ),
-            items: _aniosDisponibles().map((anio) {
-              return DropdownMenuItem<int>(
-                value: anio,
-                child: Text(anio.toString()),
-              );
-            }).toList(),
-            onChanged: (value) {
-              if (value == null) return;
-              _cambiarMesAnio(anio: value);
-            },
-          ),
-        ),
-        ElevatedButton.icon(
-          onPressed: _cargarTodo,
-          icon: const Icon(Icons.refresh),
-          label: const Text('Actualizar'),
-        ),
-        OutlinedButton.icon(
-          onPressed: _exportando ? null : _exportarExcel,
-          icon: const Icon(Icons.table_view),
-          label: const Text('Exportar Excel'),
-        ),
-      ],
+            SizedBox(
+              width: mesWidth,
+              child: DropdownButtonFormField<int>(
+                value: _mes,
+                decoration: const InputDecoration(
+                  labelText: 'Mes',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: List.generate(12, (index) {
+                  final value = index + 1;
+                  return DropdownMenuItem<int>(
+                    value: value,
+                    child: Text(_meses[index]),
+                  );
+                }),
+                onChanged: (value) {
+                  if (value == null) return;
+                  _cambiarMesAnio(mes: value);
+                },
+              ),
+            ),
+            SizedBox(
+              width: anioWidth,
+              child: DropdownButtonFormField<int>(
+                value: _anio,
+                decoration: const InputDecoration(
+                  labelText: 'Año',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: _aniosDisponibles().map((anio) {
+                  return DropdownMenuItem<int>(
+                    value: anio,
+                    child: Text(anio.toString()),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+                  _cambiarMesAnio(anio: value);
+                },
+              ),
+            ),
+            ElevatedButton.icon(
+              onPressed: _cargarTodo,
+              icon: const Icon(Icons.refresh),
+              label: Text(isSmall ? 'Actualizar' : 'Actualizar'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _exportando ? null : _exportarExcel,
+              icon: const Icon(Icons.table_view),
+              label: Text(isSmall ? 'Excel' : 'Exportar Excel'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1225,9 +1455,9 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
       final rows = <List<dynamic>>[];
 
       rows.add([
+        'Turno',
         'Nómina',
         'Nombre',
-        'Puesto',
         for (int d = 1; d <= diasMes; d++) _fechaCortaDia(d),
       ]);
 
@@ -1235,9 +1465,9 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
         final dias = Map<String, dynamic>.from(emp['dias'] ?? {});
 
         rows.add([
+          _turnoTexto(emp),
           emp['numero_nomina'] ?? emp['nomina'] ?? '',
           emp['nombre'] ?? '',
-          emp['puesto'] ?? '',
           for (int d = 1; d <= diasMes; d++)
             _textoExcel(dias[d.toString()]?.toString()),
         ]);
@@ -1318,31 +1548,35 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xfff4f6f8),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _cargarTodo,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _header(),
-                const SizedBox(height: 16),
-                _resumenCards(),
-                const SizedBox(height: 16),
-                _listasAsistencia(),
-                const SizedBox(height: 16),
-                _leyenda(),
-                const SizedBox(height: 16),
-                _matrizAsistencia(),
-              ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmall = constraints.maxWidth < 720;
+
+        return Scaffold(
+          backgroundColor: const Color(0xfff4f6f8),
+          body: SafeArea(
+            child: RefreshIndicator(
+              onRefresh: _cargarTodo,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.all(isSmall ? 10 : 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _header(),
+                    SizedBox(height: isSmall ? 10 : 16),
+                    _listasAsistencia(),
+                    SizedBox(height: isSmall ? 10 : 16),
+                    _leyenda(),
+                    SizedBox(height: isSmall ? 10 : 16),
+                    _matrizAsistencia(),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

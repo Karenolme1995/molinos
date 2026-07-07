@@ -26,6 +26,8 @@ class _MolinosScreenState extends State<MolinosScreen> {
   String _vistaHistorial = 'dia';
   Timer? _turnoAutoTimer;
   TableroMolinos? _tablero;
+  bool _vistaTabla = false;
+  bool _mostrarListaEmpleados = true;
 
   final List<String> _turnos = const ['TURNO 1', 'TURNO 2', 'TURNO 3'];
   static const List<String> _puestos = [
@@ -1188,57 +1190,210 @@ class _MolinosScreenState extends State<MolinosScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
 
-    return Column(
-      children: [
-        _topBar(auth.canEdit),
-        _turnosBar(),
-        Expanded(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null
-                  ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
-                  : Column(
-                      children: [
-                        _supervisoresBar(),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              SizedBox(width: 350, child: _panelEmpleados(auth.canEdit)),
-                              const VerticalDivider(width: 1),
-                              Expanded(child: _panelMaquinas(auth.canEdit)),
-                            ],
-                          ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final ancho = constraints.maxWidth;
+        final pantallaChica = ancho < 760;
+        final mostrarPanelEmpleados = !_vistaTabla && _mostrarListaEmpleados && !pantallaChica;
+        final panelWidth = ancho < 980 ? 300.0 : 350.0;
+        final usarCompacto = _vistaTabla || pantallaChica;
+
+        return Column(
+          children: [
+            _topBar(auth.canEdit),
+            _turnosBar(),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                      ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+                      : Column(
+                          children: [
+                            _supervisoresBar(),
+                            Expanded(
+                              child: pantallaChica
+                                  ? _panelMaquinas(
+                                      auth.canEdit,
+                                      compacto: true,
+                                    )
+                                  : Row(
+                                      children: [
+                                        if (mostrarPanelEmpleados) ...[
+                                          SizedBox(width: panelWidth, child: _panelEmpleados(auth.canEdit)),
+                                          const VerticalDivider(width: 1),
+                                        ] else if (!_vistaTabla) ...[
+                                          Container(
+                                            width: 42,
+                                            color: Colors.grey.shade100,
+                                            child: Center(
+                                              child: IconButton.filledTonal(
+                                                tooltip: 'Mostrar lista de empleados',
+                                                onPressed: () {
+                                                  setState(() => _mostrarListaEmpleados = true);
+                                                },
+                                                icon: const Icon(Icons.keyboard_double_arrow_right),
+                                              ),
+                                            ),
+                                          ),
+                                          const VerticalDivider(width: 1),
+                                        ],
+                                        Expanded(
+                                          child: _panelMaquinas(
+                                            auth.canEdit,
+                                            compacto: usarCompacto,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _topBar(bool canEdit) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      color: Colors.white,
-      child: Row(
-        children: [
-          const Text('Molinos', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(width: 16),
-          IconButton(onPressed: () => _cambiarFecha(-1), icon: const Icon(Icons.chevron_left)),
-          Text(DateFormat('dd/MM/yyyy').format(_fecha), style: const TextStyle(fontWeight: FontWeight.w600)),
-          IconButton(onPressed: () => _cambiarFecha(1), icon: const Icon(Icons.chevron_right)),
-          const Spacer(),
-          IconButton(tooltip: 'Actualizar', onPressed: _load, icon: const Icon(Icons.refresh)),
-          if (canEdit)
-            FilledButton.icon(
-              onPressed: _syncing ? null : _sincronizarTurnos,
-              icon: _syncing
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.sync),
-              label: const Text('Sincronizar turnos'),
-            ),
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final pantallaChica = constraints.maxWidth < 760;
+
+        Widget fechaSelector() {
+          return Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              IconButton(
+                tooltip: 'Día anterior',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => _cambiarFecha(-1),
+                icon: const Icon(Icons.chevron_left),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  DateFormat('dd/MM/yyyy').format(_fecha),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Día siguiente',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => _cambiarFecha(1),
+                icon: const Icon(Icons.chevron_right),
+              ),
+            ],
+          );
+        }
+
+        Widget controles() {
+          return Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SegmentedButton<bool>(
+                showSelectedIcon: false,
+                segments: [
+                  ButtonSegment(
+                    value: false,
+                    icon: const Icon(Icons.view_agenda_outlined),
+                    label: Text(pantallaChica ? 'Cards' : 'Tarjetas'),
+                  ),
+                  ButtonSegment(
+                    value: true,
+                    icon: const Icon(Icons.table_rows_outlined),
+                    label: const Text('Tabla'),
+                  ),
+                ],
+                selected: {_vistaTabla},
+                onSelectionChanged: (values) {
+                  setState(() {
+                    _vistaTabla = values.first;
+                    _mostrarListaEmpleados = !_vistaTabla;
+                  });
+                },
+              ),
+              if (!_vistaTabla)
+                IconButton.filledTonal(
+                  tooltip: _mostrarListaEmpleados ? 'Ocultar lista de empleados' : 'Mostrar lista de empleados',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    setState(() => _mostrarListaEmpleados = !_mostrarListaEmpleados);
+                  },
+                  icon: Icon(_mostrarListaEmpleados ? Icons.visibility_off : Icons.visibility),
+                ),
+              IconButton.filledTonal(
+                tooltip: 'Actualizar',
+                visualDensity: VisualDensity.compact,
+                onPressed: _load,
+                icon: const Icon(Icons.refresh),
+              ),
+              if (canEdit)
+                FilledButton.icon(
+                  onPressed: _syncing ? null : _sincronizarTurnos,
+                  icon: _syncing
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.sync),
+                  label: Text(pantallaChica ? 'Sync' : 'Sincronizar turnos'),
+                ),
+            ],
+          );
+        }
+
+        return Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(
+            horizontal: pantallaChica ? 10 : 14,
+            vertical: pantallaChica ? 8 : 10,
+          ),
+          color: Colors.white,
+          child: pantallaChica
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        const Text(
+                          'Molinos',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                        fechaSelector(),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    controles(),
+                  ],
+                )
+              : Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 120,
+                      child: Text(
+                        'Molinos',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    fechaSelector(),
+                    controles(),
+                  ],
+                ),
+        );
+      },
     );
   }
 
@@ -1330,31 +1485,81 @@ class _MolinosScreenState extends State<MolinosScreen> {
 
   Widget _supervisoresBar() {
     final supervisores = _filtrarEmpleados(_tablero?.supervisores ?? []);
-    return Container(
-      width: double.infinity,
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle('Encargados / Supervisores', Icons.supervisor_account),
-          const SizedBox(height: 8),
-          if (supervisores.isEmpty)
-            Text('Sin encargados o supervisores para este turno.', style: TextStyle(color: Colors.grey.shade700))
-          else
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: supervisores
-                    .map((e) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: SizedBox(width: 260, child: _EmpleadoChip(empleado: e, onTap: () => _detalle(e), destacado: true)),
-                        ))
-                    .toList(),
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final pantallaChica = constraints.maxWidth < 760;
+        final compacto = pantallaChica || _vistaTabla;
+
+        return Container(
+          width: double.infinity,
+          color: Colors.white,
+          padding: EdgeInsets.fromLTRB(12, compacto ? 6 : 10, 12, compacto ? 6 : 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _sectionTitle(
+                      compacto ? 'Supervisores' : 'Encargados / Supervisores',
+                      Icons.supervisor_account,
+                      compacto: compacto,
+                    ),
+                  ),
+                  if (compacto && supervisores.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.indigo.shade50,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.indigo.shade100),
+                      ),
+                      child: Text(
+                        '${supervisores.length}',
+                        style: TextStyle(
+                          color: Colors.indigo.shade700,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            ),
-        ],
-      ),
+              SizedBox(height: compacto ? 4 : 8),
+              if (supervisores.isEmpty)
+                Text(
+                  'Sin encargados o supervisores para este turno.',
+                  maxLines: compacto ? 1 : 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.grey.shade700, fontSize: compacto ? 11 : 13),
+                )
+              else
+                SizedBox(
+                  height: compacto ? 48 : 78,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: supervisores.length,
+                    separatorBuilder: (_, __) => SizedBox(width: compacto ? 6 : 8),
+                    itemBuilder: (_, index) {
+                      final e = supervisores[index];
+                      return SizedBox(
+                        width: compacto ? 185 : 260,
+                        child: _EmpleadoChip(
+                          empleado: e,
+                          onTap: () => _detalle(e),
+                          destacado: true,
+                          compacto: compacto,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1378,9 +1583,22 @@ class _MolinosScreenState extends State<MolinosScreen> {
           padding: const EdgeInsets.all(12),
           child: ListView(
             children: [
-              _sectionTitle(
-                'Lista de empleados $_turnoFiltro',
-                Icons.groups_rounded,
+              Row(
+                children: [
+                  Expanded(
+                    child: _sectionTitle(
+                      'Lista de empleados $_turnoFiltro',
+                      Icons.groups_rounded,
+                    ),
+                  ),
+                  IconButton.filledTonal(
+                    tooltip: 'Ocultar lista de empleados',
+                    onPressed: () {
+                      setState(() => _mostrarListaEmpleados = false);
+                    },
+                    icon: const Icon(Icons.keyboard_double_arrow_left),
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
               if (empleadosDelTurno.isEmpty)
@@ -1417,17 +1635,17 @@ class _MolinosScreenState extends State<MolinosScreen> {
     );
   }
 
-  Widget _sectionTitle(String title, IconData icon) {
+  Widget _sectionTitle(String title, IconData icon, {bool compacto = false}) {
     return Row(
       children: [
-        Icon(icon, size: 20),
-        const SizedBox(width: 8),
+        Icon(icon, size: compacto ? 16 : 20),
+        SizedBox(width: compacto ? 6 : 8),
         Expanded(
           child: Text(
             title,
-            maxLines: 2,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: compacto ? 14 : 18, fontWeight: FontWeight.bold),
           ),
         ),
       ],
@@ -1472,26 +1690,42 @@ class _MolinosScreenState extends State<MolinosScreen> {
     );
   }
 
-  Widget _panelMaquinas(bool canEdit) {
+  Widget _panelMaquinas(bool canEdit, {bool compacto = false}) {
     final maquinas = _tablero!.maquinas;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: maquinas.map((m) {
-          final empleados = _filtrarEmpleados(m.empleados).toList();
-          return _MaquinaMolinoCard(
-            maquina: m,
-            empleados: empleados,
-            canEdit: canEdit,
-            onDropEmpleado: (e) => _asignar(e, m.id),
-            onEstado: (estado) => _estado(m, estado),
-            onEmpleadoTap: _detalle,
-            onHistorial: () => _verHistorial(m),
-          );
-        }).toList(),
-      ),
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final ancho = constraints.maxWidth;
+        final pantallaMuyChica = ancho < 520;
+        final anchoTarjeta = pantallaMuyChica
+            ? (ancho - 16).clamp(220.0, 420.0)
+            : compacto
+                ? 240.0
+                : 340.0;
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(compacto ? 8 : 12),
+          child: Wrap(
+            spacing: compacto ? 8 : 12,
+            runSpacing: compacto ? 8 : 12,
+            children: maquinas.map((m) {
+              final empleados = _filtrarEmpleados(m.empleados).toList();
+
+              return _MaquinaMolinoCard(
+                maquina: m,
+                empleados: empleados,
+                canEdit: canEdit,
+                compacto: compacto || pantallaMuyChica,
+                ancho: anchoTarjeta,
+                onDropEmpleado: (e) => _asignar(e, m.id),
+                onEstado: (estado) => _estado(m, estado),
+                onEmpleadoTap: _detalle,
+                onHistorial: () => _verHistorial(m),
+              );
+            }).toList(),
+          ),
+        );
+      },
     );
   }
 }
@@ -1500,8 +1734,14 @@ class _EmpleadoChip extends StatelessWidget {
   final EmpleadoMolinos empleado;
   final VoidCallback onTap;
   final bool destacado;
+  final bool compacto;
 
-  const _EmpleadoChip({required this.empleado, required this.onTap, this.destacado = false});
+  const _EmpleadoChip({
+    required this.empleado,
+    required this.onTap,
+    this.destacado = false,
+    this.compacto = false,
+  });
 
   Color _colorFromName(String? value) {
     switch ((value ?? '').toLowerCase()) {
@@ -1538,6 +1778,46 @@ class _EmpleadoChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final turnoColor = _colorFromName(empleado.turnoColor);
+
+    if (compacto) {
+      final subtitulo = empleado.puesto ?? empleado.turno ?? 'Sin puesto';
+
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: destacado ? Colors.indigo.shade50 : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: destacado ? Colors.indigo.shade200 : Colors.grey.shade300),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 14,
+                backgroundImage: empleado.foto != null && empleado.foto!.isNotEmpty
+                    ? NetworkImage(ApiService.fileUrl(empleado.foto!))
+                    : null,
+                child: empleado.foto == null || empleado.foto!.isEmpty ? const Icon(Icons.person, size: 15) : null,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  '${empleado.nombre} · $subtitulo',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+                ),
+              ),
+              if (empleado.acotacion != null) const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 15),
+            ],
+          ),
+        ),
+      );
+    }
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
@@ -1560,44 +1840,19 @@ class _EmpleadoChip extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(empleado.nombre, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Text(empleado.puesto ?? 'Sin puesto', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
-                  Text(
-                    empleado.maquinaNombre == null ? 'En espera / afuera' : 'Máquina: ${empleado.maquinaNombre}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
-                  ),
-                  if (empleado.turno != null)
-                    Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: turnoColor.withOpacity(.12), borderRadius: BorderRadius.circular(20)),
-                      child: Text(
-                        empleado.horarioTurno.isEmpty ? empleado.turno! : '${empleado.turno!} · ${empleado.horarioTurno}',
-                        style: TextStyle(color: turnoColor, fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      empleado.resumenChecadas,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: empleado.presente ? Colors.green.shade800 : Colors.red.shade700, fontSize: 11, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  if (!empleado.turnoEnHorario)
-                    Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.orange.shade200)),
-                      child: const Text('Aún no es su turno', style: TextStyle(color: Colors.deepOrange, fontSize: 11, fontWeight: FontWeight.bold)),
-                    ),
-                ],
+              child: Text(
+                [
+                  empleado.nombre,
+                  empleado.puesto ?? 'Sin puesto',
+                  empleado.maquinaNombre == null ? 'En espera / afuera' : 'Máquina: ${empleado.maquinaNombre}',
+                ].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: destacado ? 12 : 13,
+                  color: Colors.black87,
+                ),
               ),
             ),
             if (empleado.acotacion != null) const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
@@ -1684,6 +1939,8 @@ class _MaquinaMolinoCard extends StatelessWidget {
   final MaquinaMolinos maquina;
   final List<EmpleadoMolinos> empleados;
   final bool canEdit;
+  final bool compacto;
+  final double? ancho;
   final ValueChanged<EmpleadoMolinos> onDropEmpleado;
   final ValueChanged<String> onEstado;
   final ValueChanged<EmpleadoMolinos> onEmpleadoTap;
@@ -1693,6 +1950,8 @@ class _MaquinaMolinoCard extends StatelessWidget {
     required this.maquina,
     required this.empleados,
     required this.canEdit,
+    this.compacto = false,
+    this.ancho,
     required this.onDropEmpleado,
     required this.onEstado,
     required this.onEmpleadoTap,
@@ -1811,22 +2070,69 @@ class _MaquinaMolinoCard extends StatelessWidget {
     );
   }
 
+
+  Widget _empleadoEnMaquinaCompacto(EmpleadoMolinos e, ValueChanged<EmpleadoMolinos> onTap) {
+    final noCheco = !e.presente;
+
+    return InkWell(
+      onTap: () => onTap(e),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: noCheco ? Colors.red.shade50 : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: noCheco ? Colors.red.shade200 : Colors.grey.shade300),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              noCheco ? Icons.person_off : Icons.person,
+              size: 16,
+              color: noCheco ? Colors.red : Colors.blueGrey,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                e.nombre,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: noCheco ? Colors.red.shade800 : Colors.black87,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final color = _estadoColor(maquina.estadoColor.isNotEmpty ? maquina.estadoColor : maquina.estado);
+
+    final cardWidth = ancho ?? (compacto ? 240.0 : 340.0);
+    final minHeight = compacto ? 170.0 : 270.0;
+    final padding = compacto ? 8.0 : 12.0;
+    final titleSize = compacto ? 14.0 : 18.0;
+
     return DragTarget<EmpleadoMolinos>(
       onWillAcceptWithDetails: (_) => canEdit,
       onAcceptWithDetails: (details) => onDropEmpleado(details.data),
       builder: (context, candidate, rejected) {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          width: 340,
-          constraints: const BoxConstraints(minHeight: 270),
-          padding: const EdgeInsets.all(12),
+          width: cardWidth,
+          constraints: BoxConstraints(minHeight: minHeight),
+          padding: EdgeInsets.all(padding),
           decoration: BoxDecoration(
             color: candidate.isNotEmpty ? color.withOpacity(.08) : Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: color, width: 3),
+            borderRadius: BorderRadius.circular(compacto ? 14 : 18),
+            border: Border.all(color: color, width: compacto ? 2 : 3),
             boxShadow: const [BoxShadow(color: Color(0x15000000), blurRadius: 12, offset: Offset(0, 5))],
           ),
           child: Column(
@@ -1839,27 +2145,37 @@ class _MaquinaMolinoCard extends StatelessWidget {
                       maquina.nombre,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: titleSize, fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(width: 6),
                   _EstadoAnimadoIcon(estado: maquina.estado, color: color),
-                  const SizedBox(width: 6),
-                  OutlinedButton.icon(
-                    onPressed: onHistorial,
-                    icon: const Icon(Icons.history, size: 16),
-                    label: const Text('Historial'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                      visualDensity: VisualDensity.compact,
+                  if (!compacto) ...[
+                    const SizedBox(width: 6),
+                    OutlinedButton.icon(
+                      onPressed: onHistorial,
+                      icon: const Icon(Icons.history, size: 16),
+                      label: const Text('Historial'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        visualDensity: VisualDensity.compact,
+                      ),
                     ),
-                  ),
+                  ] else
+                    IconButton(
+                      tooltip: 'Historial',
+                      onPressed: onHistorial,
+                      icon: const Icon(Icons.history, size: 18),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
                 ],
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: compacto ? 4 : 6),
               Wrap(
-                spacing: 6,
-                runSpacing: 6,
+                spacing: compacto ? 4 : 6,
+                runSpacing: compacto ? 4 : 6,
                 children: [
                   _estadoButton('trabajando', Colors.green),
                   _estadoButton('limpieza', Colors.amber),
@@ -1867,46 +2183,51 @@ class _MaquinaMolinoCard extends StatelessWidget {
                   _estadoButton('paro', Colors.red),
                 ],
               ),
-              if (maquina.descripcion?.isNotEmpty == true)
+              if (!compacto && maquina.descripcion?.isNotEmpty == true)
                 Padding(
                   padding: const EdgeInsets.only(top: 8, bottom: 8),
                   child: Text(maquina.descripcion!, style: TextStyle(color: Colors.grey.shade700)),
                 ),
-              const Divider(height: 18),
+              Divider(height: compacto ? 12 : 18),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(10),
+                padding: EdgeInsets.all(compacto ? 7 : 10),
                 decoration: BoxDecoration(color: color.withOpacity(.12), borderRadius: BorderRadius.circular(12)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Wrap(
-                      spacing: 8,
+                      spacing: 6,
                       runSpacing: 4,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
-                          '${_estadoLabel(maquina.estado)} desde ${maquina.estadoHoraInicio ?? '--:--'}',
-                          style: TextStyle(color: color, fontWeight: FontWeight.bold),
+                          compacto
+                              ? _estadoLabel(maquina.estado)
+                              : '${_estadoLabel(maquina.estado)} desde ${maquina.estadoHoraInicio ?? '--:--'}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: compacto ? 11 : 14),
                         ),
-                        const Icon(Icons.timer_outlined, size: 18),
+                        const Icon(Icons.timer_outlined, size: 16),
                         StreamBuilder<int>(
                           stream: Stream<int>.periodic(const Duration(seconds: 1), (i) => i),
                           builder: (_, __) => Text(
                             _duracionEstado(maquina.estadoInicioDateTime),
-                            style: const TextStyle(fontWeight: FontWeight.w700),
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: compacto ? 11 : 14),
                           ),
                         ),
                       ],
                     ),
-                    if (maquina.estadoObservaciones != null) Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(maquina.estadoObservaciones!, style: const TextStyle(fontSize: 12)),
-                    ),
+                    if (!compacto && maquina.estadoObservaciones != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(maquina.estadoObservaciones!, style: const TextStyle(fontSize: 12)),
+                      ),
                   ],
                 ),
               ),
-              if (maquina.mantenimientoFechaProxima != null) ...[
+              if (!compacto && maquina.mantenimientoFechaProxima != null) ...[
                 const SizedBox(height: 10),
                 Container(
                   width: double.infinity,
@@ -1931,41 +2252,51 @@ class _MaquinaMolinoCard extends StatelessWidget {
                           '${maquina.mantenimientoProximo == null ? '' : ' · ${maquina.mantenimientoProximo}'}',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: _colorSemaforo(maquina.mantenimientoSemaforo),
-                          ),
+                          style: TextStyle(fontWeight: FontWeight.bold, color: _colorSemaforo(maquina.mantenimientoSemaforo)),
                         ),
                       ),
                     ],
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
-              Text('Lista de empleados (${empleados.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
+              SizedBox(height: compacto ? 8 : 12),
+              Text(
+                compacto ? 'Emp. (${empleados.length})' : 'Lista de empleados (${empleados.length})',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: compacto ? 12 : 14),
+              ),
+              SizedBox(height: compacto ? 5 : 8),
               if (empleados.isEmpty)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(compacto ? 8 : 16),
                   decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
-                  child: Text('Arrastra empleados aquí. Si es LAVADOR, se queda en el molino y cambia a Limpieza.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade700)),
+                  child: Text(
+                    compacto ? 'Vacío' : 'Arrastra empleados aquí. Si es LAVADOR, se queda en el molino y cambia a Limpieza.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey.shade700, fontSize: compacto ? 11 : 13),
+                  ),
                 )
               else
-                ...empleados.map((e) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: canEdit
-                          ? Draggable<EmpleadoMolinos>(
-                              data: e,
-                              feedback: Material(
-                                color: Colors.transparent,
-                                child: EmpleadoMuneco(empleado: e, compacto: true),
-                              ),
-                              childWhenDragging: Opacity(opacity: .35, child: _empleadoEnMaquina(e, onEmpleadoTap)),
-                              child: _empleadoEnMaquina(e, onEmpleadoTap),
-                            )
-                          : _empleadoEnMaquina(e, onEmpleadoTap),
-                    )),
+                ...empleados.map((e) {
+                  final child = compacto
+                      ? _empleadoEnMaquinaCompacto(e, onEmpleadoTap)
+                      : _empleadoEnMaquina(e, onEmpleadoTap);
+
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: compacto ? 5 : 8),
+                    child: canEdit
+                        ? Draggable<EmpleadoMolinos>(
+                            data: e,
+                            feedback: Material(
+                              color: Colors.transparent,
+                              child: EmpleadoMuneco(empleado: e, compacto: true),
+                            ),
+                            childWhenDragging: Opacity(opacity: .35, child: child),
+                            child: child,
+                          )
+                        : child,
+                  );
+                }),
             ],
           ),
         );

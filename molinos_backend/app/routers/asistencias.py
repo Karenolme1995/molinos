@@ -45,6 +45,14 @@ def _time_text(value):
     return str(value)
 
 
+def _date_value(value, fallback: Optional[date] = None) -> date:
+    if isinstance(value, date):
+        return value
+    if value is None:
+        return fallback or date.today()
+    return datetime.strptime(str(value)[:10], "%Y-%m-%d").date()
+
+
 def _month_range(anio: int, mes: int):
     inicio = date(anio, mes, 1)
     fin = date(anio, mes, monthrange(anio, mes)[1])
@@ -67,6 +75,169 @@ def _valor_asistencia(row):
         return "ENT"
 
     return "F"
+
+
+def _turnos_actuales(db, empleado_ids: list[int], fecha_jornada: date) -> dict[int, dict]:
+    """
+    Regresa el turno visible por empleado desde empleados_turnos_rotacion.
+
+    Importante para Asistencias:
+    - No depende de que el empleado haya checado asistencia.
+    - No deja "SIN TURNO" si el empleado tiene cualquier rotación activa.
+    - Primero intenta la semana exacta del año.
+    - Si no existe, intenta la rotación vigente por fechas.
+    - Si tampoco existe, usa la última rotación activa del empleado.
+    """
+    if not empleado_ids:
+        return {}
+
+    placeholders = ",".join(["%s"] * len(empleado_ids))
+    actual_por_empleado: dict[int, dict] = {}
+    semana_actual = int(fecha_jornada.isocalendar()[1])
+
+    with db.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT
+                r.id,
+                r.empleado_id,
+                r.semana_orden,
+                r.turno_id,
+                r.fecha_inicio,
+                r.fecha_fin,
+                t.nombre AS turno,
+                t.nombre AS turno_nombre,
+                t.color AS turno_color,
+                t.hora_inicio AS turno_hora_inicio,
+                t.hora_fin AS turno_hora_fin
+            FROM empleados_turnos_rotacion r
+            INNER JOIN turnos t
+                ON t.id = r.turno_id
+               AND IFNULL(t.activo, 1) = 1
+            WHERE IFNULL(r.activo, 1) = 1
+              AND r.empleado_id IN ({placeholders})
+            ORDER BY r.empleado_id ASC, r.semana_orden ASC, r.id ASC
+            """,
+            tuple(empleado_ids),
+        )
+        rotaciones = cur.fetchall()
+
+        por_empleado: dict[int, list[dict]] = {}
+        for row in rotaciones:
+            try:
+                empleado_id = int(row["empleado_id"])
+            except Exception:
+                continue
+            por_empleado.setdefault(empleado_id, []).append(row)
+
+        for empleado_id, rows in por_empleado.items():
+            if not rows:
+                continue
+
+            def fecha_valida(row: dict) -> bool:
+                fi = row.get("fecha_inicio")
+                ff = row.get("fecha_fin")
+                if fi is not None and _date_value(fi, fecha_jornada) > fecha_jornada:
+                    return False
+                if ff is not None and _date_value(ff, fecha_jornada) < fecha_jornada:
+                    return False
+                return True
+
+            exactas = [r for r in rows if int(r.get("semana_orden") or 0) == semana_actual]
+            vigentes = [r for r in rows if fecha_valida(r)]
+
+            if exactas:
+                actual = exactas[-1]
+                origen = "rotacion_semana_exacta"
+            elif vigentes:
+                # Si hay varias vigentes, usa la más reciente por fecha_inicio/id.
+                actual = sorted(
+                    vigentes,
+                    key=lambda r: (
+                        str(r.get("fecha_inicio") or "0001-01-01"),
+                        int(r.get("id") or 0),
+                    ),
+                )[-1]
+                origen = "rotacion_vigente"
+            else:
+                # Último respaldo: si existe cualquier rotación activa, úsala para no mostrar SIN TURNO.
+                actual = sorted(rows, key=lambda r: int(r.get("id") or 0))[-1]
+                origen = "rotacion_activa_respaldo"
+
+            actual_por_empleado[empleado_id] = {
+                "turno_id": actual.get("turno_id"),
+                "turno": actual.get("turno") or actual.get("turno_nombre"),
+                "turno_nombre": actual.get("turno_nombre") or actual.get("turno"),
+                "turno_color": actual.get("turno_color"),
+                "turno_hora_inicio": _time_text(actual.get("turno_hora_inicio")),
+                "turno_hora_fin": _time_text(actual.get("turno_hora_fin")),
+                "turno_origen": origen,
+                "turno_semana_orden": actual.get("semana_orden"),
+            }
+
+        # Respaldo para instalaciones viejas. Si la tabla empleados_turnos no existe,
+        # no debe romper asistencias; simplemente se ignora.
+        faltantes = [eid for eid in empleado_ids if eid not in actual_por_empleado]
+        if faltantes:
+            try:
+                placeholders_faltantes = ",".join(["%s"] * len(faltantes))
+                cur.execute(
+                    f"""
+                    SELECT
+                        et.empleado_id,
+                        et.turno_id,
+                        t.nombre AS turno,
+                        t.nombre AS turno_nombre,
+                        t.color AS turno_color,
+                        t.hora_inicio AS turno_hora_inicio,
+                        t.hora_fin AS turno_hora_fin
+                    FROM empleados_turnos et
+                    INNER JOIN turnos t
+                        ON t.id = et.turno_id
+                       AND IFNULL(t.activo, 1) = 1
+                    WHERE IFNULL(et.activo, 1) = 1
+                      AND et.empleado_id IN ({placeholders_faltantes})
+                    ORDER BY et.empleado_id ASC, et.id DESC
+                    """,
+                    tuple(faltantes),
+                )
+                directos = cur.fetchall()
+            except Exception:
+                directos = []
+
+            for row in directos:
+                empleado_id = int(row["empleado_id"])
+                if empleado_id in actual_por_empleado:
+                    continue
+                actual_por_empleado[empleado_id] = {
+                    "turno_id": row.get("turno_id"),
+                    "turno": row.get("turno") or row.get("turno_nombre"),
+                    "turno_nombre": row.get("turno_nombre") or row.get("turno"),
+                    "turno_color": row.get("turno_color"),
+                    "turno_hora_inicio": _time_text(row.get("turno_hora_inicio")),
+                    "turno_hora_fin": _time_text(row.get("turno_hora_fin")),
+                    "turno_origen": "empleados_turnos",
+                }
+
+    return actual_por_empleado
+
+def _aplicar_turnos(db, empleados: list[dict], fecha_jornada: date) -> list[dict]:
+    ids = [int(e["empleado_id"]) for e in empleados if e.get("empleado_id") is not None]
+    turnos = _turnos_actuales(db, ids, fecha_jornada)
+
+    for emp in empleados:
+        empleado_id = int(emp.get("empleado_id") or 0)
+        turno = turnos.get(empleado_id, {})
+        emp["turno_id"] = turno.get("turno_id") or emp.get("turno_id")
+        emp["turno"] = turno.get("turno") or turno.get("turno_nombre") or emp.get("turno") or emp.get("turno_nombre")
+        emp["turno_nombre"] = turno.get("turno_nombre") or turno.get("turno") or emp.get("turno_nombre") or emp.get("turno")
+        emp["turno_color"] = turno.get("turno_color") or emp.get("turno_color")
+        emp["turno_hora_inicio"] = turno.get("turno_hora_inicio") or emp.get("turno_hora_inicio")
+        emp["turno_hora_fin"] = turno.get("turno_hora_fin") or emp.get("turno_hora_fin")
+        emp["turno_origen"] = turno.get("turno_origen") or ("empleados_turnos_rotacion" if turno.get("turno_id") else ("empleados_turnos" if emp.get("turno_id") else None))
+        emp["turno_semana_orden"] = turno.get("turno_semana_orden") or emp.get("turno_semana_orden")
+
+    return empleados
 
 
 @router.get("")
@@ -238,9 +409,6 @@ def tablero_asistencias(
             ac.descripcion AS acotacion_descripcion,
             ac.color AS acotacion_color,
 
-            t.nombre AS turno,
-            t.color AS turno_color,
-
             ma.maquina_id,
             m.nombre AS maquina_nombre
 
@@ -266,14 +434,6 @@ def tablero_asistencias(
             ON ac.id = ea.acotacion_id
            AND ac.activo = 1
 
-        LEFT JOIN empleados_turnos et
-            ON et.empleado_id = e.id
-           AND et.activo = 1
-
-        LEFT JOIN turnos t
-            ON t.id = et.turno_id
-           AND t.activo = 1
-
         LEFT JOIN maquina_asignaciones ma
             ON ma.empleado_id = e.id
            AND ma.fecha_jornada = %s
@@ -294,6 +454,8 @@ def tablero_asistencias(
             (fecha_jornada, fecha_jornada, fecha_jornada, departamento),
         )
         empleados = cur.fetchall()
+
+    empleados = _aplicar_turnos(db, empleados, fecha_jornada)
 
     presentes = []
     ausentes = []
@@ -365,39 +527,50 @@ def matriz_asistencia(
         )
         empleados_rows = cur.fetchall()
 
-        cur.execute(
-            """
-            SELECT
-                empleado_id,
-                fecha_jornada AS fecha,
-                DAY(fecha_jornada) AS dia,
-                MAX(CASE WHEN tipo = 'entrada' THEN 1 ELSE 0 END) AS entrada_ok,
-                MAX(CASE WHEN tipo = 'salida_comida' THEN 1 ELSE 0 END) AS salida_comida_ok,
-                MAX(CASE WHEN tipo = 'entrada_comida' THEN 1 ELSE 0 END) AS entrada_comida_ok,
-                MAX(CASE WHEN tipo = 'salida' THEN 1 ELSE 0 END) AS salida_ok
-            FROM asistencias
-            WHERE fecha_jornada BETWEEN %s AND %s
-            GROUP BY empleado_id, fecha_jornada
-            """,
-            (inicio_mes, fin_mes),
-        )
-        asistencia_rows = cur.fetchall()
+        empleado_ids = [int(e["empleado_id"]) for e in empleados_rows if e.get("empleado_id") is not None]
+        if empleado_ids:
+            placeholders_ids = ",".join(["%s"] * len(empleado_ids))
+            cur.execute(
+                f"""
+                SELECT
+                    empleado_id,
+                    fecha_jornada AS fecha,
+                    DAY(fecha_jornada) AS dia,
+                    MAX(CASE WHEN tipo = 'entrada' THEN 1 ELSE 0 END) AS entrada_ok,
+                    MAX(CASE WHEN tipo = 'salida_comida' THEN 1 ELSE 0 END) AS salida_comida_ok,
+                    MAX(CASE WHEN tipo = 'entrada_comida' THEN 1 ELSE 0 END) AS entrada_comida_ok,
+                    MAX(CASE WHEN tipo = 'salida' THEN 1 ELSE 0 END) AS salida_ok
+                FROM asistencias
+                WHERE fecha_jornada BETWEEN %s AND %s
+                  AND empleado_id IN ({placeholders_ids})
+                GROUP BY empleado_id, fecha_jornada
+                """,
+                tuple([inicio_mes, fin_mes] + empleado_ids),
+            )
+            asistencia_rows = cur.fetchall()
 
-        cur.execute(
-            """
-            SELECT
-                ea.empleado_id,
-                ea.fecha,
-                DAY(ea.fecha) AS dia,
-                ac.clave AS valor
-            FROM empleados_acotaciones ea
-            INNER JOIN acotaciones ac ON ac.id = ea.acotacion_id
-            WHERE ea.fecha BETWEEN %s AND %s
-              AND ac.activo = 1
-            """,
-            (inicio_mes, fin_mes),
-        )
-        acotacion_rows = cur.fetchall()
+            cur.execute(
+                f"""
+                SELECT
+                    ea.empleado_id,
+                    ea.fecha,
+                    DAY(ea.fecha) AS dia,
+                    ac.clave AS valor
+                FROM empleados_acotaciones ea
+                INNER JOIN acotaciones ac ON ac.id = ea.acotacion_id
+                WHERE ea.fecha BETWEEN %s AND %s
+                  AND ea.empleado_id IN ({placeholders_ids})
+                  AND ac.activo = 1
+                """,
+                tuple([inicio_mes, fin_mes] + empleado_ids),
+            )
+            acotacion_rows = cur.fetchall()
+        else:
+            asistencia_rows = []
+            acotacion_rows = []
+
+    fecha_turno = hoy if inicio_mes <= hoy <= fin_mes else inicio_mes
+    empleados_rows = _aplicar_turnos(db, empleados_rows, fecha_turno)
 
     asistencia_por_empleado_dia = {}
     for row in asistencia_rows:
@@ -421,6 +594,12 @@ def matriz_asistencia(
             "nombre": emp["nombre"],
             "puesto": emp["puesto"],
             "departamento": emp["departamento"],
+            "turno_id": emp.get("turno_id"),
+            "turno": emp.get("turno"),
+            "turno_nombre": emp.get("turno_nombre"),
+            "turno_color": emp.get("turno_color"),
+            "turno_hora_inicio": emp.get("turno_hora_inicio"),
+            "turno_hora_fin": emp.get("turno_hora_fin"),
             "dias": {},
         }
 
@@ -446,6 +625,43 @@ def matriz_asistencia(
         "anio": anio,
         "departamento": departamento,
         "dias_mes": dias_mes,
+        "empleados": empleados,
+    }
+
+
+@router.get("/debug-turnos")
+def debug_turnos_asistencias(
+    fecha_jornada: Optional[date] = Query(default=None),
+    departamento: str = Query(default="MOLINOS"),
+    db=Depends(get_db),
+    user=Depends(get_current_user),
+):
+    if fecha_jornada is None:
+        fecha_jornada = date.today()
+
+    with db.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id AS empleado_id, numero_nomina, nombre, departamento
+            FROM empleados
+            WHERE UPPER(IFNULL(departamento, '')) = UPPER(%s)
+              AND IFNULL(activo, 1) = 1
+            ORDER BY nombre ASC
+            """,
+            (departamento,),
+        )
+        empleados = cur.fetchall()
+
+    empleados = _aplicar_turnos(db, empleados, fecha_jornada)
+    sin_turno = [e for e in empleados if not e.get("turno_id") and not e.get("turno") and not e.get("turno_nombre")]
+    con_turno = [e for e in empleados if e not in sin_turno]
+
+    return {
+        "fecha_jornada": str(fecha_jornada),
+        "departamento": departamento,
+        "total": len(empleados),
+        "con_turno": len(con_turno),
+        "sin_turno": len(sin_turno),
         "empleados": empleados,
     }
 
