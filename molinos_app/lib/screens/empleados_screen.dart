@@ -319,6 +319,38 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
     await _load();
   }
 
+
+  DateTime _inicioSemanaIso(int semana, {int? year}) {
+    final targetYear = year ?? DateTime.now().year;
+    final jan4 = DateTime(targetYear, 1, 4);
+    final mondayWeek1 = jan4.subtract(Duration(days: jan4.weekday - 1));
+    return mondayWeek1.add(Duration(days: (semana.clamp(1, 53) - 1) * 7));
+  }
+
+  DateTime _finSemanaIso(int semana, {int? year}) {
+    return _inicioSemanaIso(semana, year: year).add(const Duration(days: 6));
+  }
+
+  String _fechaSemanaInicio(int semana) {
+    return DateFormat('yyyy-MM-dd').format(_inicioSemanaIso(semana));
+  }
+
+  String _fechaSemanaFin(int semana) {
+    return DateFormat('yyyy-MM-dd').format(_finSemanaIso(semana));
+  }
+
+  RotacionTurnoMolino _rotacionConFechas({
+    required int semanaOrden,
+    required int turnoId,
+  }) {
+    return RotacionTurnoMolino(
+      semanaOrden: semanaOrden,
+      turnoId: turnoId,
+      fechaInicio: _fechaSemanaInicio(semanaOrden),
+      fechaFin: _fechaSemanaFin(semanaOrden),
+    );
+  }
+
   Future<void> _editarRotacion(EmpleadoMolinos empleado) async {
     final service = _service();
     List<TurnoMolino> turnos = _turnosUnicos(await service.turnos());
@@ -331,10 +363,9 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
 
     if (rotacion.isEmpty) {
       rotacion = [
-        RotacionTurnoMolino(
+        _rotacionConFechas(
           semanaOrden: _semanaDelAnio(DateTime.now()),
           turnoId: turnos.first.id,
-          fechaInicio: DateFormat('yyyy-MM-dd').format(DateTime.now()),
         ),
       ];
     }
@@ -366,61 +397,81 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                       final maxSemana = math.max(53, rotacion.map((x) => x.semanaOrden).reduce(math.max));
                       final semanaValue = r.semanaOrden <= 0 ? _semanaDelAnio(DateTime.now()) : r.semanaOrden;
                       final turnoValue = _turnoValido(r.turnoId, turnos);
+                      final fechaInicioAuto = _fechaSemanaInicio(semanaValue);
+                      final fechaFinAuto = _fechaSemanaFin(semanaValue);
                       return Card(
                         child: Padding(
                           padding: const EdgeInsets.all(10),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              SizedBox(
-                                width: 120,
-                                child: DropdownButtonFormField<int>(
-                                  value: semanaValue,
-                                  items: List.generate((maxSemana - semanaActual) + 1, (idx) => semanaActual + idx)
-                                      .map<DropdownMenuItem<int>>((w) => DropdownMenuItem<int>(value: w, child: Text('Semana del año $w')))
-                                      .toList(),
-                                  onChanged: (value) {
-                                    if (value == null) return;
-                                    setDialogState(() {
-                                      rotacion[i] = RotacionTurnoMolino(
-                                        semanaOrden: value,
-                                        turnoId: r.turnoId,
-                                        fechaInicio: r.fechaInicio ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
-                                        fechaFin: r.fechaFin,
-                                      );
-                                    });
-                                  },
-                                ),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: 190,
+                                    child: DropdownButtonFormField<int>(
+                                      value: semanaValue,
+                                      items: List.generate((maxSemana - semanaActual) + 1, (idx) => semanaActual + idx)
+                                          .map<DropdownMenuItem<int>>((w) => DropdownMenuItem<int>(value: w, child: Text('Semana $w')))
+                                          .toList(),
+                                      onChanged: (value) {
+                                        if (value == null) return;
+                                        setDialogState(() {
+                                          rotacion[i] = _rotacionConFechas(
+                                            semanaOrden: value,
+                                            turnoId: r.turnoId,
+                                          );
+                                        });
+                                      },
+                                      decoration: const InputDecoration(labelText: 'Semana'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: DropdownButtonFormField<int>(
+                                      value: turnoValue,
+                                      items: turnos
+                                          .map<DropdownMenuItem<int>>(
+                                            (t) => DropdownMenuItem<int>(
+                                              value: t.id,
+                                              child: Text('${t.nombre} ${t.horaInicio ?? ''}-${t.horaFin ?? ''}'),
+                                            ),
+                                          )
+                                          .toList(),
+                                      onChanged: (value) {
+                                        if (value == null) return;
+                                        setDialogState(() {
+                                          rotacion[i] = _rotacionConFechas(
+                                            semanaOrden: r.semanaOrden,
+                                            turnoId: value,
+                                          );
+                                        });
+                                      },
+                                      decoration: const InputDecoration(labelText: 'Turno'),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Quitar semana',
+                                    onPressed: rotacion.length == 1 ? null : () => setDialogState(() => rotacion.removeAt(i)),
+                                    icon: const Icon(Icons.delete_outline),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: DropdownButtonFormField<int>(
-                                  value: turnoValue,
-                                  items: turnos
-                                      .map<DropdownMenuItem<int>>(
-                                        (t) => DropdownMenuItem<int>(
-                                          value: t.id,
-                                          child: Text('${t.nombre} ${t.horaInicio ?? ''}-${t.horaFin ?? ''}'),
-                                        ),
-                                      )
-                                      .toList(),
-                                  onChanged: (value) {
-                                    if (value == null) return;
-                                    setDialogState(() {
-                                      rotacion[i] = RotacionTurnoMolino(
-                                        semanaOrden: r.semanaOrden,
-                                        turnoId: value,
-                                        fechaInicio: r.fechaInicio ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
-                                        fechaFin: r.fechaFin,
-                                      );
-                                    });
-                                  },
-                                  decoration: const InputDecoration(labelText: 'Turno'),
-                                ),
-                              ),
-                              IconButton(
-                                tooltip: 'Quitar semana',
-                                onPressed: rotacion.length == 1 ? null : () => setDialogState(() => rotacion.removeAt(i)),
-                                icon: const Icon(Icons.delete_outline),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 6,
+                                children: [
+                                  Chip(
+                                    avatar: const Icon(Icons.event_available, size: 18),
+                                    label: Text('Inicio: ${r.fechaInicio ?? fechaInicioAuto}'),
+                                  ),
+                                  Chip(
+                                    avatar: const Icon(Icons.event_busy, size: 18),
+                                    label: Text('Fin: ${r.fechaFin ?? fechaFinAuto}'),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -433,10 +484,9 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                         onPressed: () => setDialogState(() {
                           final nextWeek = rotacion.isEmpty ? _semanaDelAnio(DateTime.now()) : rotacion.map((r) => r.semanaOrden).reduce(math.max) + 1;
                           rotacion.add(
-                            RotacionTurnoMolino(
+                            _rotacionConFechas(
                               semanaOrden: nextWeek,
                               turnoId: turnos.first.id,
-                              fechaInicio: DateFormat('yyyy-MM-dd').format(DateTime.now()),
                             ),
                           );
                         }),

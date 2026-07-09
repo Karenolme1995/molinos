@@ -3,9 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import auth, usuarios, empleados, maquinas, molinos, asistencias, checador, bitacoras,areas
 from fastapi.staticfiles import StaticFiles
-
-
-
+from fastapi.responses import FileResponse, RedirectResponse
 
 
 app = FastAPI(

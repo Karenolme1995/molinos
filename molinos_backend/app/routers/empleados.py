@@ -1,7 +1,7 @@
 import os
 import uuid
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
@@ -83,6 +83,24 @@ def _parse_fecha(value, fallback: date | None = None) -> date:
         return fallback or hoy()
     return datetime.strptime(str(value)[:10], "%Y-%m-%d").date()
 
+
+
+def _fechas_semana_iso(semana: int, year: int | None = None) -> tuple[date, date]:
+    """Regresa lunes y domingo de una semana ISO del año indicado."""
+    target_year = year or hoy().year
+    semana_segura = max(1, min(int(semana or 1), 53))
+    jan4 = date(target_year, 1, 4)
+    monday_week_1 = jan4 - timedelta(days=jan4.weekday())
+    inicio = monday_week_1 + timedelta(weeks=semana_segura - 1)
+    fin = inicio + timedelta(days=6)
+    return inicio, fin
+
+
+def _completar_fechas_rotacion(item: RotacionEmpleadoItemIn) -> tuple[date, date]:
+    inicio_auto, fin_auto = _fechas_semana_iso(item.semana_orden)
+    fecha_inicio = item.fecha_inicio or inicio_auto
+    fecha_fin = item.fecha_fin or fin_auto
+    return fecha_inicio, fecha_fin
 
 def validar_turno(turno_id: int):
     turno = fetch_one(
@@ -279,7 +297,8 @@ def guardar_rotacion_empleado(data: RotacionEmpleadoIn, user=Depends(require_adm
             raise HTTPException(status_code=400, detail="La semana de rotación debe ser mayor a 0")
         if item.semana_orden in semanas:
             raise HTTPException(status_code=400, detail=f"La semana {item.semana_orden} está repetida")
-        if item.fecha_inicio and item.fecha_fin and item.fecha_fin < item.fecha_inicio:
+        fecha_inicio, fecha_fin = _completar_fechas_rotacion(item)
+        if fecha_fin < fecha_inicio:
             raise HTTPException(status_code=400, detail=f"La fecha fin no puede ser menor a la fecha inicio en la semana {item.semana_orden}")
         validar_turno(item.turno_id)
         semanas.add(item.semana_orden)
@@ -289,12 +308,13 @@ def guardar_rotacion_empleado(data: RotacionEmpleadoIn, user=Depends(require_adm
         with conn.cursor() as cur:
             cur.execute("UPDATE empleados_turnos_rotacion SET activo = 0 WHERE empleado_id = %s", (data.empleado_id,))
             for item in sorted(data.rotacion, key=lambda x: x.semana_orden):
+                fecha_inicio, fecha_fin = _completar_fechas_rotacion(item)
                 cur.execute(
                     """
                     INSERT INTO empleados_turnos_rotacion(empleado_id, semana_orden, turno_id, fecha_inicio, fecha_fin, activo)
                     VALUES (%s, %s, %s, %s, %s, 1)
                     """,
-                    (data.empleado_id, item.semana_orden, item.turno_id, item.fecha_inicio, item.fecha_fin),
+                    (data.empleado_id, item.semana_orden, item.turno_id, fecha_inicio, fecha_fin),
                 )
         conn.commit()
     except Exception as e:
