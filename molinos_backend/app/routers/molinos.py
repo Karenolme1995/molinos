@@ -356,13 +356,12 @@ def _turno_por_hora(hora_texto, catalogo):
 
 
 def _elegir_rotacion_empleado(rotaciones_all: list[dict], fecha_jornada: str) -> dict | None:
-    """Elige el turno real del empleado para la fecha.
+    """Elige el turno real del empleado para la fecha del tablero.
 
-    Misma regla que el checador:
-    - Si hay una sola rotación vigente, se usa directo.
-    - Si hay varias, se calcula la semana cíclica desde fecha_inicio base.
-    - Si existe una fila con semana_orden igual a la semana ISO del año, tiene prioridad.
-    - Si las fechas no cubren el día del tablero, usa las rotaciones activas como respaldo.
+    Prioridad:
+    1) La fila cuyo rango fecha_inicio/fecha_fin cubre la fecha.
+    2) La fila con semana_orden igual a la semana ISO de la fecha.
+    3) La última fila anterior por fecha_inicio.
     """
     if not rotaciones_all:
         return None
@@ -372,9 +371,32 @@ def _elegir_rotacion_empleado(rotaciones_all: list[dict], fecha_jornada: str) ->
         raise HTTPException(status_code=400, detail='fecha_jornada debe tener formato YYYY-MM-DD')
 
     semana_anio = int(fecha.isocalendar().week)
-    rotaciones_all = sorted(rotaciones_all, key=lambda r: (int(r.get('semana_orden') or 1), str(r.get('fecha_inicio') or '')))
-    vigentes = [r for r in rotaciones_all if int(r.get('vigente_fecha') or 0) == 1]
-    rotaciones = vigentes or rotaciones_all
+
+    def parse_fecha(value, fallback):
+        if not value:
+            return fallback
+        try:
+            return datetime.strptime(str(value)[:10], '%Y-%m-%d').date()
+        except Exception:
+            return fallback
+
+    rotaciones = sorted(
+        rotaciones_all,
+        key=lambda r: (
+            parse_fecha(r.get('fecha_inicio'), fecha),
+            int(r.get('semana_orden') or 0),
+            int(r.get('id') or 0),
+        ),
+    )
+
+    for r in rotaciones:
+        ini = parse_fecha(r.get('fecha_inicio'), fecha)
+        fin = parse_fecha(r.get('fecha_fin'), ini)
+        if ini <= fecha <= fin:
+            elegido = dict(r)
+            elegido['semana_anio'] = semana_anio
+            elegido['turno_origen'] = 'empleados_turnos_rotacion_rango_fecha'
+            return elegido
 
     exactas = [r for r in rotaciones if int(r.get('semana_orden') or 0) == semana_anio]
     if exactas:
@@ -383,34 +405,86 @@ def _elegir_rotacion_empleado(rotaciones_all: list[dict], fecha_jornada: str) ->
         elegido['turno_origen'] = 'empleados_turnos_rotacion_semana_anio'
         return elegido
 
-    if len(rotaciones) == 1:
-        elegido = dict(rotaciones[0])
-        elegido['semana_anio'] = semana_anio
-        elegido['turno_origen'] = 'empleados_turnos_rotacion_unica'
-        return elegido
-
-    fechas_base = []
-    for r in rotaciones:
-        base = r.get('fecha_inicio') or r.get('fecha_inicio_base')
-        if base:
-            try:
-                fechas_base.append(datetime.strptime(str(base)[:10], '%Y-%m-%d').date())
-            except Exception:
-                pass
-    fecha_base = min(fechas_base) if fechas_base else fecha
-    semanas_pasadas = max(0, (fecha - fecha_base).days // 7)
-    elegido = dict(rotaciones[semanas_pasadas % len(rotaciones)])
+    anteriores = [r for r in rotaciones if parse_fecha(r.get('fecha_inicio'), fecha) <= fecha]
+    elegido = dict(anteriores[-1] if anteriores else rotaciones[0])
     elegido['semana_anio'] = semana_anio
-    elegido['turno_origen'] = 'empleados_turnos_rotacion_ciclica'
-    if not vigentes:
-        elegido['turno_origen'] = 'empleados_turnos_rotacion_respaldo_sin_fecha_vigente'
+    elegido['turno_origen'] = 'empleados_turnos_rotacion_respaldo'
     return elegido
+
+
+def _siguiente_rotacion_empleado(rotaciones_all: list[dict], fecha_jornada: str, actual: dict | None = None) -> dict | None:
+    """Regresa la próxima fila real por fecha_inicio.
+
+    Ejemplo: si la fecha está en semana 28, la siguiente fila con fecha_inicio mayor
+    debe ser semana 29.
+    """
+    if not rotaciones_all:
+        return None
+    try:
+        fecha = datetime.strptime(fecha_jornada, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail='fecha_jornada debe tener formato YYYY-MM-DD')
+
+    def parse_fecha(value, fallback):
+        if not value:
+            return fallback
+        try:
+            return datetime.strptime(str(value)[:10], '%Y-%m-%d').date()
+        except Exception:
+            return fallback
+
+    rotaciones = sorted(
+        rotaciones_all,
+        key=lambda r: (
+            parse_fecha(r.get('fecha_inicio'), fecha),
+            int(r.get('semana_orden') or 0),
+            int(r.get('id') or 0),
+        ),
+    )
+
+    futuras = [r for r in rotaciones if parse_fecha(r.get('fecha_inicio'), fecha) > fecha]
+    if futuras:
+        return dict(futuras[0])
+
+    if actual:
+        actual_semana = int(actual.get('semana_orden') or 0)
+        posteriores = [r for r in rotaciones if int(r.get('semana_orden') or 0) > actual_semana]
+        if posteriores:
+            return dict(posteriores[0])
+
+    return dict(rotaciones[0])
+
+
+def _rol_rotacion_info(rotaciones_all: list[dict], fecha_jornada: str) -> dict:
+    try:
+        fecha = datetime.strptime(fecha_jornada, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail='fecha_jornada debe tener formato YYYY-MM-DD')
+
+    semana_actual = int(fecha.isocalendar().week)
+    esperadas = max(0, 53 - semana_actual + 1)
+    semanas = {
+        int(r.get('semana_orden') or 0)
+        for r in rotaciones_all
+        if int(r.get('semana_orden') or 0) >= semana_actual
+    }
+    cubiertas = len(semanas)
+    completo = esperadas > 0 and cubiertas >= esperadas
+    return {
+        'semana_actual': semana_actual,
+        'rol_completo': completo,
+        'rol_estado': 'Rol completo' if completo else 'Rol incompleto',
+        'rol_semanas_cubiertas': cubiertas,
+        'rol_semanas_esperadas': esperadas,
+        'semanas_rol_capturadas': cubiertas,
+        'semanas_rol_requeridas': esperadas,
+    }
 
 
 def _rotaciones_activas_molinos(fecha_jornada: str) -> dict[int, list[dict]]:
     rows = fetch_all(
         """
-        SELECT r.empleado_id, r.turno_id, r.semana_orden,
+        SELECT r.id, r.empleado_id, r.turno_id, r.semana_orden,
                DATE_FORMAT(r.fecha_inicio, '%%Y-%%m-%%d') AS fecha_inicio,
                DATE_FORMAT(r.fecha_fin, '%%Y-%%m-%%d') AS fecha_fin,
                COALESCE(r.fecha_inicio, %s) AS fecha_inicio_base,
@@ -443,6 +517,20 @@ def _turnos_programados_por_rotacion(fecha_jornada: str) -> dict[int, dict]:
     for empleado_id, rotaciones in _rotaciones_activas_molinos(fecha_jornada).items():
         elegido = _elegir_rotacion_empleado(rotaciones, fecha_jornada)
         if elegido:
+            proximo = _siguiente_rotacion_empleado(rotaciones, fecha_jornada, elegido)
+            info = _rol_rotacion_info(rotaciones, fecha_jornada)
+            elegido.update(info)
+            if proximo:
+                elegido.update({
+                    'proximo_turno_id': proximo.get('turno_id'),
+                    'proximo_turno': proximo.get('turno'),
+                    'proximo_turno_nombre': proximo.get('turno'),
+                    'proximo_turno_hora_inicio': proximo.get('turno_hora_inicio'),
+                    'proximo_turno_hora_fin': proximo.get('turno_hora_fin'),
+                    'proximo_turno_fecha_inicio': proximo.get('fecha_inicio'),
+                    'proximo_turno_fecha_fin': proximo.get('fecha_fin'),
+                    'proximo_turno_semana': proximo.get('semana_orden'),
+                })
             programados[empleado_id] = elegido
     return programados
 
@@ -863,6 +951,23 @@ def tablero(fecha_jornada: str, turno: str = 'TURNO 1', vista: str = 'dia', user
             empleado['semana_anio'] = turno_rotacion.get('semana_anio')
             empleado['fecha_inicio_turno'] = turno_rotacion.get('fecha_inicio')
             empleado['fecha_fin_turno'] = turno_rotacion.get('fecha_fin')
+            empleado['turno_fecha_inicio'] = turno_rotacion.get('fecha_inicio')
+            empleado['turno_fecha_fin'] = turno_rotacion.get('fecha_fin')
+            empleado['proximo_turno_id'] = turno_rotacion.get('proximo_turno_id')
+            empleado['proximo_turno'] = turno_rotacion.get('proximo_turno')
+            empleado['proximo_turno_nombre'] = turno_rotacion.get('proximo_turno_nombre')
+            empleado['proximo_turno_hora_inicio'] = turno_rotacion.get('proximo_turno_hora_inicio')
+            empleado['proximo_turno_hora_fin'] = turno_rotacion.get('proximo_turno_hora_fin')
+            empleado['proximo_turno_fecha_inicio'] = turno_rotacion.get('proximo_turno_fecha_inicio')
+            empleado['proximo_turno_fecha_fin'] = turno_rotacion.get('proximo_turno_fecha_fin')
+            empleado['proximo_turno_semana'] = turno_rotacion.get('proximo_turno_semana')
+            empleado['semana_actual'] = turno_rotacion.get('semana_actual')
+            empleado['rol_completo'] = turno_rotacion.get('rol_completo')
+            empleado['rol_estado'] = turno_rotacion.get('rol_estado')
+            empleado['rol_semanas_cubiertas'] = turno_rotacion.get('rol_semanas_cubiertas')
+            empleado['rol_semanas_esperadas'] = turno_rotacion.get('rol_semanas_esperadas')
+            empleado['semanas_rol_capturadas'] = turno_rotacion.get('semanas_rol_capturadas')
+            empleado['semanas_rol_requeridas'] = turno_rotacion.get('semanas_rol_requeridas')
             empleado['turno_origen'] = turno_rotacion.get('turno_origen') or 'empleados_turnos_rotacion'
             _calcular_asistencia_empleado(empleado)
         else:
@@ -968,7 +1073,22 @@ def listar_empleados_molinos(q: str = '', turno: str = 'TODOS', user=Depends(get
             row['turno_color'] = turno_rotacion.get('turno_color')
             row['turno_hora_inicio'] = turno_rotacion.get('turno_hora_inicio')
             row['turno_hora_fin'] = turno_rotacion.get('turno_hora_fin')
+            row['turno_fecha_inicio'] = turno_rotacion.get('fecha_inicio')
+            row['turno_fecha_fin'] = turno_rotacion.get('fecha_fin')
+            row['proximo_turno_id'] = turno_rotacion.get('proximo_turno_id')
+            row['proximo_turno'] = turno_rotacion.get('proximo_turno')
+            row['proximo_turno_nombre'] = turno_rotacion.get('proximo_turno_nombre')
+            row['proximo_turno_hora_inicio'] = turno_rotacion.get('proximo_turno_hora_inicio')
+            row['proximo_turno_hora_fin'] = turno_rotacion.get('proximo_turno_hora_fin')
+            row['proximo_turno_fecha_inicio'] = turno_rotacion.get('proximo_turno_fecha_inicio')
+            row['proximo_turno_fecha_fin'] = turno_rotacion.get('proximo_turno_fecha_fin')
+            row['proximo_turno_semana'] = turno_rotacion.get('proximo_turno_semana')
             row['semana_anio'] = turno_rotacion.get('semana_anio')
+            row['semana_actual'] = turno_rotacion.get('semana_actual')
+            row['rol_completo'] = turno_rotacion.get('rol_completo')
+            row['rol_estado'] = turno_rotacion.get('rol_estado')
+            row['rol_semanas_cubiertas'] = turno_rotacion.get('rol_semanas_cubiertas')
+            row['rol_semanas_esperadas'] = turno_rotacion.get('rol_semanas_esperadas')
             row['turno_origen'] = turno_rotacion.get('turno_origen') or 'empleados_turnos_rotacion'
         else:
             row['semana_anio'] = _semana_del_anio(fecha_hoy)

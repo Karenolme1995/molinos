@@ -241,7 +241,7 @@ class MolinosService {
         .toList();
   }
 
-  Future<List<EmpleadoMolinos>> empleados({String q = '', String turno = 'TODOS'}) async {
+  Future<List<EmpleadoMolinos>> empleados({String q = '', String turno = 'TODOS', String? fechaJornada}) async {
     final turnosData = await turnos();
     int? turnoId;
     final filtro = turno.toUpperCase().trim();
@@ -258,6 +258,7 @@ class MolinosService {
       'departamento': 'MOLINOS',
       if (q.trim().isNotEmpty) 'q': q.trim(),
       if (turnoId != null) 'turno_id': turnoId.toString(),
+      if ((fechaJornada ?? '').trim().isNotEmpty) 'fecha_jornada': fechaJornada!.trim(),
     };
 
     final uri = Uri.parse('${ApiService.baseUrl}/empleados').replace(queryParameters: query);

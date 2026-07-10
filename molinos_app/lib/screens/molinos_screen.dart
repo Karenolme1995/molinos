@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -8,7 +8,6 @@ import '../models/maquina_molinos.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/molinos_service.dart';
-import '../widgets/empleado_muneco.dart';
 
 class MolinosScreen extends StatefulWidget {
   const MolinosScreen({super.key});
@@ -71,7 +70,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
     await _load();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Ya comenzó $automatico · TURNO ACTUAL')),
+      SnackBar(content: Text('Ya comenzÃ³ $automatico Â· TURNO ACTUAL')),
     );
   }
 
@@ -119,7 +118,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       );
       await _load();
       if (_esLavador(empleado)) {
-        _ok('Lavador asignado al molino. Inició limpieza. Al regresarlo a espera se termina la limpieza.');
+        _ok('Lavador asignado al molino. IniciÃ³ limpieza. Al regresarlo a espera se termina la limpieza.');
       }
     } catch (e) {
       _showError(e);
@@ -158,9 +157,9 @@ class _MolinosScreenState extends State<MolinosScreen> {
       );
       await _load();
       if (estado == 'mantenimiento') {
-        _ok('Mantenimiento iniciado y bitácora registrada.');
+        _ok('Mantenimiento iniciado y bitÃ¡cora registrada.');
       } else if (maquina.estado == 'mantenimiento') {
-        _ok('Mantenimiento cerrado. Se registró fecha, hora de término y tiempo muerto.');
+        _ok('Mantenimiento cerrado. Se registrÃ³ fecha, hora de tÃ©rmino y tiempo muerto.');
       }
     } catch (e) {
       _showError(e);
@@ -203,7 +202,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       if (n == null) return null;
       if (text.contains('sem')) return n * 7;
       if (text.contains('mes')) return n * 30;
-      if (text.contains('año') || text.contains('ano')) return n * 365;
+      if (text.contains('aÃ±o') || text.contains('ano')) return n * 365;
       return n;
     }
 
@@ -215,7 +214,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
     return showDialog<Map<String, dynamic>>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(esMantenimiento ? 'Abrir bitácora de mantenimiento' : 'Cambiar ${maquina.nombre}'),
+        title: Text(esMantenimiento ? 'Abrir bitÃ¡cora de mantenimiento' : 'Cambiar ${maquina.nombre}'),
         content: SizedBox(
           width: 460,
           child: SingleChildScrollView(
@@ -246,7 +245,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
                                     labelText: 'Buscar mantenimiento',
                                     prefixIcon: const Icon(Icons.search),
                                     helperText: mantenimientos.isEmpty
-                                        ? 'No hay mantenimientos activos para el área MOLINOS'
+                                        ? 'No hay mantenimientos activos para el Ã¡rea MOLINOS'
                                         : 'Se carga desde la tabla mantenimientos',
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
@@ -254,7 +253,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
                               ),
                               const SizedBox(width: 8),
                               IconButton.filled(
-                                tooltip: 'Agregar mantenimiento al catálogo',
+                                tooltip: 'Agregar mantenimiento al catÃ¡logo',
                                 icon: const Icon(Icons.add),
                                 onPressed: () async {
                                   final tipoCtrl = TextEditingController();
@@ -276,7 +275,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
                                               TextField(
                                                 controller: tiempoCtrl,
                                                 decoration: const InputDecoration(
-                                                  labelText: 'Tiempo / frecuencia en días',
+                                                  labelText: 'Tiempo / frecuencia en dÃ­as',
                                                   hintText: 'Ejemplo: 7, 15, 30',
                                                 ),
                                                 keyboardType: TextInputType.number,
@@ -308,7 +307,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
                                         diasAuto = diasDesdeTiempoMant(tiempo);
                                         fechaProximaAuto = diasAuto == null ? '' : fechaProximaDesdeDias(diasAuto!);
                                       });
-                                      _ok('Mantenimiento agregado al catálogo.');
+                                      _ok('Mantenimiento agregado al catÃ¡logo.');
                                     }
                                   } finally {
                                     tipoCtrl.dispose();
@@ -359,8 +358,8 @@ class _MolinosScreenState extends State<MolinosScreen> {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       fechaProximaAuto.isEmpty
-                          ? 'Fecha próxima: se calculará con los días del mantenimiento'
-                          : 'Fecha próxima automática: $fechaProximaAuto',
+                          ? 'Fecha prÃ³xima: se calcularÃ¡ con los dÃ­as del mantenimiento'
+                          : 'Fecha prÃ³xima automÃ¡tica: $fechaProximaAuto',
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         color: Colors.blueGrey.shade700,
@@ -372,7 +371,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
                     maxLines: 3,
                     onChanged: (value) => descripcionPreven = value,
                     decoration: InputDecoration(
-                      labelText: 'Descripción preventiva / inicio',
+                      labelText: 'DescripciÃ³n preventiva / inicio',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
@@ -382,8 +381,8 @@ class _MolinosScreenState extends State<MolinosScreen> {
                     autofocus: true,
                     onChanged: (value) => observaciones = value,
                     decoration: InputDecoration(
-                      labelText: cierraMantenimiento ? 'Descripción correctiva / término' : 'Observaciones',
-                      hintText: cierraMantenimiento ? 'Qué se corrigió o cómo terminó el mantenimiento' : 'Opcional',
+                      labelText: cierraMantenimiento ? 'DescripciÃ³n correctiva / tÃ©rmino' : 'Observaciones',
+                      hintText: cierraMantenimiento ? 'QuÃ© se corrigiÃ³ o cÃ³mo terminÃ³ el mantenimiento' : 'Opcional',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
@@ -461,7 +460,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
                     tabs: [
                       Tab(icon: const Icon(Icons.history), text: 'Estados/asig. (${conteos['estados_asignaciones'] ?? historial.length})'),
                       Tab(icon: const Icon(Icons.build), text: 'Mantenimientos (${conteos['mantenimientos'] ?? mantenimientos.length})'),
-                      const Tab(icon: Icon(Icons.description), text: 'Ficha técnica'),
+                      const Tab(icon: Icon(Icons.description), text: 'Ficha tÃ©cnica'),
                       const Tab(icon: Icon(Icons.people), text: 'Personas por turno'),
                     ],
                   ),
@@ -501,7 +500,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
               ? ''
               : h.diasRestantes! <= 0
                   ? 'vence hoy'
-                  : 'faltan ${h.diasRestantes} días';
+                  : 'faltan ${h.diasRestantes} dÃ­as';
           return Card(
             margin: const EdgeInsets.symmetric(vertical: 4),
             color: color.withOpacity(.08),
@@ -514,11 +513,11 @@ class _MolinosScreenState extends State<MolinosScreen> {
               title: Text(h.titulo, style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text([
                 'Inicio: ${h.fecha} ${h.hora}',
-                if (h.fechaProxima?.isNotEmpty == true) 'Próximo: ${h.fechaProxima} $restante',
-                if (h.dias != null) 'Frecuencia: ${h.dias} días',
+                if (h.fechaProxima?.isNotEmpty == true) 'PrÃ³ximo: ${h.fechaProxima} $restante',
+                if (h.dias != null) 'Frecuencia: ${h.dias} dÃ­as',
                 if (h.statusManto?.isNotEmpty == true) 'Estatus: ${h.statusManto}',
                 if (h.tiempoMuerto?.isNotEmpty == true) 'Tiempo muerto: ${h.tiempoMuerto}',
-              ].join(' · ')),
+              ].join(' Â· ')),
               onTap: () => _verBitacoraFormato(h),
               trailing: Wrap(
                 spacing: 6,
@@ -548,7 +547,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
             if (h.turno?.isNotEmpty == true) h.turno!,
             if (h.subtitulo?.isNotEmpty == true) h.subtitulo!,
             if (h.observaciones?.isNotEmpty == true) h.observaciones!,
-          ].join(' · ')),
+          ].join(' Â· ')),
         );
       },
     );
@@ -557,27 +556,27 @@ class _MolinosScreenState extends State<MolinosScreen> {
 
   Widget _fichaTecnicaMaquina(MaquinaMolinos maquina, Map<String, dynamic> ficha) {
     final rows = <MapEntry<String, String>>[
-      MapEntry('Máquina', (ficha['nombre'] ?? maquina.nombre).toString()),
-      MapEntry('Área', (ficha['area'] ?? 'MOLINOS').toString()),
-      MapEntry('Descripción', (ficha['descripcion'] ?? maquina.descripcion ?? 'Sin descripción').toString()),
-      MapEntry('Código interno', (ficha['codigo'] ?? 'Sin capturar').toString()),
+      MapEntry('MÃ¡quina', (ficha['nombre'] ?? maquina.nombre).toString()),
+      MapEntry('Ãrea', (ficha['area'] ?? 'MOLINOS').toString()),
+      MapEntry('DescripciÃ³n', (ficha['descripcion'] ?? maquina.descripcion ?? 'Sin descripciÃ³n').toString()),
+      MapEntry('CÃ³digo interno', (ficha['codigo'] ?? 'Sin capturar').toString()),
       MapEntry('Marca', (ficha['marca'] ?? 'Sin capturar').toString()),
       MapEntry('Modelo', (ficha['modelo'] ?? 'Sin capturar').toString()),
       MapEntry('Serie', (ficha['serie'] ?? 'Sin capturar').toString()),
-      MapEntry('Ubicación', (ficha['ubicacion'] ?? 'Sin capturar').toString()),
+      MapEntry('UbicaciÃ³n', (ficha['ubicacion'] ?? 'Sin capturar').toString()),
       MapEntry('Capacidad', (ficha['capacidad'] ?? 'Sin capturar').toString()),
       MapEntry('Voltaje', (ficha['voltaje'] ?? 'Sin capturar').toString()),
       MapEntry('Potencia', (ficha['potencia'] ?? 'Sin capturar').toString()),
       MapEntry('Proveedor', (ficha['proveedor'] ?? 'Sin capturar').toString()),
-      MapEntry('Fecha instalación', (ficha['fecha_instalacion'] ?? 'Sin capturar').toString()),
+      MapEntry('Fecha instalaciÃ³n', (ficha['fecha_instalacion'] ?? 'Sin capturar').toString()),
       MapEntry('Fecha alta', (ficha['fecha_alta'] ?? 'Sin dato').toString()),
-      MapEntry('Última actualización', (ficha['actualizado'] ?? 'Sin dato').toString()),
+      MapEntry('Ãšltima actualizaciÃ³n', (ficha['actualizado'] ?? 'Sin dato').toString()),
       MapEntry('Estado actual', maquina.estadoNombre),
       MapEntry('Inicio estado', '${maquina.estadoFechaInicio ?? '-'} ${maquina.estadoHoraInicio ?? ''}'.trim()),
       MapEntry('Observaciones estado', maquina.estadoObservaciones ?? 'Sin observaciones'),
-      MapEntry('Próximo mantenimiento', maquina.mantenimientoProximo ?? 'Sin mantenimiento próximo'),
-      MapEntry('Fecha próxima', maquina.mantenimientoFechaProxima ?? 'Sin fecha'),
-      MapEntry('Días restantes', maquina.mantenimientoDiasRestantes == null ? 'Sin dato' : '${maquina.mantenimientoDiasRestantes}'),
+      MapEntry('PrÃ³ximo mantenimiento', maquina.mantenimientoProximo ?? 'Sin mantenimiento prÃ³ximo'),
+      MapEntry('Fecha prÃ³xima', maquina.mantenimientoFechaProxima ?? 'Sin fecha'),
+      MapEntry('DÃ­as restantes', maquina.mantenimientoDiasRestantes == null ? 'Sin dato' : '${maquina.mantenimientoDiasRestantes}'),
       MapEntry('Notas', (ficha['notas'] ?? 'Sin notas').toString()),
     ];
 
@@ -596,7 +595,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Ficha técnica de ${maquina.nombre}',
+                        'Ficha tÃ©cnica de ${maquina.nombre}',
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -624,7 +623,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  'Para editar estos datos llena la tabla maquina_ficha_tecnica. Si no hay datos, se muestra la información básica de maquinas.',
+                  'Para editar estos datos llena la tabla maquina_ficha_tecnica. Si no hay datos, se muestra la informaciÃ³n bÃ¡sica de maquinas.',
                   style: TextStyle(color: Colors.black54, fontSize: 12),
                 ),
               ],
@@ -670,7 +669,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
                   '${h.fecha} ${h.hora}',
                   if (h.subtitulo?.isNotEmpty == true) h.subtitulo!,
                   if (h.observaciones?.isNotEmpty == true) h.observaciones!,
-                ].join(' · ')),
+                ].join(' Â· ')),
               );
             }).toList(),
           ),
@@ -702,8 +701,8 @@ class _MolinosScreenState extends State<MolinosScreen> {
           maxLines: 4,
           onChanged: (value) => descripcion = value,
           decoration: InputDecoration(
-            labelText: 'Descripción correctiva / término',
-            hintText: 'Qué se corrigió y cómo terminó el mantenimiento',
+            labelText: 'DescripciÃ³n correctiva / tÃ©rmino',
+            hintText: 'QuÃ© se corrigiÃ³ y cÃ³mo terminÃ³ el mantenimiento',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
@@ -723,7 +722,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       );
       await _load();
       if (mounted) Navigator.of(context, rootNavigator: true).pop();
-      _ok('Mantenimiento cerrado. Se calculó el tiempo muerto.');
+      _ok('Mantenimiento cerrado. Se calculÃ³ el tiempo muerto.');
     } catch (e) {
       _showError(e);
     }
@@ -733,7 +732,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('Bitácora ${h.numero ?? ''}'),
+        title: Text('BitÃ¡cora ${h.numero ?? ''}'),
         content: SizedBox(
           width: 560,
           child: SingleChildScrollView(
@@ -743,21 +742,21 @@ class _MolinosScreenState extends State<MolinosScreen> {
               children: [
                 _info('Mantenimiento', h.titulo),
                 _info('Fecha inicio', '${h.fecha} ${h.hora}'),
-                _info('Fecha próxima', h.fechaProxima ?? 'Sin fecha'),
-                _info('Días / frecuencia', h.dias == null ? 'Sin días' : '${h.dias} días'),
-                _info('Días restantes', h.diasRestantes == null ? 'Sin dato' : '${h.diasRestantes}'),
+                _info('Fecha prÃ³xima', h.fechaProxima ?? 'Sin fecha'),
+                _info('DÃ­as / frecuencia', h.dias == null ? 'Sin dÃ­as' : '${h.dias} dÃ­as'),
+                _info('DÃ­as restantes', h.diasRestantes == null ? 'Sin dato' : '${h.diasRestantes}'),
                 _info('Estatus', h.statusManto ?? 'Sin estatus'),
                 _info('Operador', h.operador ?? ''),
                 _info('Supervisor', h.supervisor ?? ''),
                 _info('Usuario', h.usuario ?? ''),
                 const Divider(height: 24),
-                const Text('Descripción preventiva', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text(h.descripcionPreven?.isNotEmpty == true ? h.descripcionPreven! : 'Sin descripción preventiva'),
+                const Text('DescripciÃ³n preventiva', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(h.descripcionPreven?.isNotEmpty == true ? h.descripcionPreven! : 'Sin descripciÃ³n preventiva'),
                 const SizedBox(height: 12),
-                const Text('Descripción correctiva', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text(h.descripcionCorrec?.isNotEmpty == true ? h.descripcionCorrec! : 'Sin descripción correctiva'),
+                const Text('DescripciÃ³n correctiva', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(h.descripcionCorrec?.isNotEmpty == true ? h.descripcionCorrec! : 'Sin descripciÃ³n correctiva'),
                 const Divider(height: 24),
-                _info('Fecha término', h.fechaTermino == null ? 'Abierto' : '${h.fechaTermino} ${h.horaTermino ?? ''}'),
+                _info('Fecha tÃ©rmino', h.fechaTermino == null ? 'Abierto' : '${h.fechaTermino} ${h.horaTermino ?? ''}'),
                 _info('Tiempo muerto', h.tiempoMuerto ?? 'En curso'),
               ],
             ),
@@ -787,7 +786,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
 
   bool _esLavador(EmpleadoMolinos e) => (e.puesto ?? '').toUpperCase().contains('LAVADOR');
 
-  List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
+List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
     return empleados.where(_visiblePorTurno).toList();
   }
 
@@ -825,19 +824,20 @@ class _MolinosScreenState extends State<MolinosScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _info('Nómina', e.numeroNomina),
+                          _info('NÃ³mina', e.numeroNomina),
                           _info('Puesto', e.puesto ?? 'Sin puesto'),
-                          _info('Turno', e.turno ?? 'Sin turno'),
+                          _info('Turno actual', e.turno ?? 'Sin turno'),
+                          _info('Turno que sigue', e.resumenTurnoQueSigue),
                           if (e.horarioTurno.isNotEmpty) _info('Horario', e.horarioTurno),
-                          if (!e.turnoEnHorario) _info('Aviso', 'Aún no es su turno'),
+                          if (!e.turnoEnHorario) _info('Aviso', 'AÃºn no es su turno'),
                           if (e.turnoPorConcluir) _info('Alerta', 'Turno casi por concluir'),
-                          _info('Máquina', e.maquinaNombre ?? 'En espera / afuera'),
+                          _info('MÃ¡quina', e.maquinaNombre ?? 'En espera / afuera'),
                           if (e.horaEntrada != null) _info('Entrada', e.horaEntrada!),
                           if (e.horaSalidaComida != null) _info('Salida comida', e.horaSalidaComida!),
                           if (e.horaRegresoComida != null) _info('Regreso comida', e.horaRegresoComida!),
                           if (e.horaSalida != null) _info('Salida', e.horaSalida!),
-                          if (e.horaInicioMaquina != null) _info('Desde en máquina', e.horaInicioMaquina!),
-                          if (e.horaFinMaquina != null) _info('Hasta en máquina', e.horaFinMaquina!),
+                          if (e.horaInicioMaquina != null) _info('Desde en mÃ¡quina', e.horaInicioMaquina!),
+                          if (e.horaFinMaquina != null) _info('Hasta en mÃ¡quina', e.horaFinMaquina!),
                         ],
                       ),
                     ),
@@ -866,14 +866,13 @@ class _MolinosScreenState extends State<MolinosScreen> {
                 Navigator.pop(context);
                 _editarEmpleadoDialog(e);
               },
-              child: const Text('Editar empleado / rotación'),
+              child: const Text('Editar empleado / rotaciÃ³n'),
             ),
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
         ],
       ),
     );
   }
-
 
 
   List<TurnoMolino> _turnosUnicos(List<TurnoMolino> turnos) {
@@ -927,7 +926,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextField(controller: numeroCtrl, decoration: const InputDecoration(labelText: 'Nómina')),
+                    TextField(controller: numeroCtrl, decoration: const InputDecoration(labelText: 'NÃ³mina')),
                     TextField(controller: nombreCtrl, decoration: const InputDecoration(labelText: 'Nombre')),
                     DropdownButtonFormField<String>(
                       value: puestoSeleccionado,
@@ -941,8 +940,8 @@ class _MolinosScreenState extends State<MolinosScreen> {
                       maxLines: 4,
                       decoration: const InputDecoration(labelText: 'Responsabilidades'),
                     ),
-                    TextField(controller: telefonoCtrl, decoration: const InputDecoration(labelText: 'Teléfono')),
-                    TextField(controller: direccionCtrl, decoration: const InputDecoration(labelText: 'Dirección')),
+                    TextField(controller: telefonoCtrl, decoration: const InputDecoration(labelText: 'TelÃ©fono')),
+                    TextField(controller: direccionCtrl, decoration: const InputDecoration(labelText: 'DirecciÃ³n')),
                     DropdownButtonFormField<int>(
                       value: activoSeleccionado,
                       items: const [
@@ -967,7 +966,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
                     OutlinedButton.icon(
                       onPressed: () => _rotacionSemanalDialog(e, turnos),
                       icon: const Icon(Icons.calendar_view_week),
-                      label: const Text('Editar rotación semanal'),
+                      label: const Text('Editar rotaciÃ³n semanal'),
                     ),
                   ],
                 ),
@@ -1042,7 +1041,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       builder: (_) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            title: Text('Rotación semanal - ${e.nombre}'),
+            title: Text('RotaciÃ³n semanal - ${e.nombre}'),
             content: SizedBox(
               width: 560,
               child: SingleChildScrollView(
@@ -1051,7 +1050,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
                   children: [
                     const Align(
                       alignment: Alignment.centerLeft,
-                      child: Text('Define desde la semana actual del año en adelante y el turno que tendrá el empleado.', style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text('Define desde la semana actual del aÃ±o en adelante y el turno que tendrÃ¡ el empleado.', style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
                     const SizedBox(height: 10),
                     ...rotacion.asMap().entries.map((entry) {
@@ -1059,7 +1058,13 @@ class _MolinosScreenState extends State<MolinosScreen> {
                       final r = entry.value;
                       final semanaActual = _semanaDelAnio(_fecha);
                       final maxSemana = math.max(53, rotacion.isEmpty ? semanaActual : rotacion.map((x) => x.semanaOrden).reduce(math.max));
-                      final semanaValue = r.semanaOrden <= 0 ? _semanaDelAnio(_fecha) : r.semanaOrden;
+                      final semanaValue = r.semanaOrden <= 0 ? semanaActual : r.semanaOrden;
+                      final minSemana = math.min(semanaActual, semanaValue);
+                      final semanasDisponibles = List<int>.generate(
+                        (maxSemana - minSemana) + 1,
+                        (idx) => minSemana + idx,
+                      ).toSet().toList()
+                        ..sort();
                       final turnoValue = _valorDropdownValido(r.turnoId, turnos);
                       return Card(
                         child: Padding(
@@ -1069,17 +1074,19 @@ class _MolinosScreenState extends State<MolinosScreen> {
                               SizedBox(
                                 width: 82,
                                 child: DropdownButtonFormField<int>(
-                                  value: semanaValue,
-                                  items: List.generate((maxSemana - semanaActual) + 1, (idx) => semanaActual + idx)
-                                      .map((w) => DropdownMenuItem<int>(value: w, child: Text('Semana del año $w')))
+                                  key: ValueKey('semana_${e.id}_$i'),
+                                  value: null,
+                                  hint: Text('Semana del aÃ±o $semanaValue'),
+                                  items: semanasDisponibles
+                                      .map((w) => DropdownMenuItem<int>(value: w, child: Text('Semana del aÃ±o $w')))
                                       .toList(),
                                   onChanged: (value) {
                                     if (value == null) return;
                                     setDialogState(() => rotacion[i] = RotacionTurnoMolino(
                                       semanaOrden: value,
                                       turnoId: r.turnoId,
-                                      fechaInicio: r.fechaInicio ?? DateFormat('yyyy-MM-dd').format(_fecha),
-                                      fechaFin: r.fechaFin,
+                                      fechaInicio: _fechaSemanaInicio(value),
+                                      fechaFin: _fechaSemanaFin(value),
                                     ));
                                   },
                                 ),
@@ -1119,7 +1126,8 @@ class _MolinosScreenState extends State<MolinosScreen> {
                           rotacion.add(RotacionTurnoMolino(
                             semanaOrden: nextWeek,
                             turnoId: turnos.first.id,
-                            fechaInicio: DateFormat('yyyy-MM-dd').format(_fecha),
+                            fechaInicio: _fechaSemanaInicio(nextWeek),
+                            fechaFin: _fechaSemanaFin(nextWeek),
                           ));
                         }),
                         icon: const Icon(Icons.add),
@@ -1137,12 +1145,12 @@ class _MolinosScreenState extends State<MolinosScreen> {
                   try {
                     await service.guardarRotacionEmpleado(empleadoId: e.id, rotacion: rotacion);
                     if (mounted) Navigator.pop(context);
-                    _ok('Rotación semanal actualizada');
+                    _ok('RotaciÃ³n semanal actualizada');
                   } catch (err) {
                     _showError(err);
                   }
                 },
-                child: const Text('Guardar rotación'),
+                child: const Text('Guardar rotaciÃ³n'),
               ),
             ],
           );
@@ -1186,7 +1194,26 @@ class _MolinosScreenState extends State<MolinosScreen> {
     return week.clamp(1, 53);
   }
 
-  @override
+  DateTime _inicioSemanaIso(int semana, {int? year}) {
+    final targetYear = year ?? _fecha.year;
+    final jan4 = DateTime(targetYear, 1, 4);
+    final mondayWeek1 = jan4.subtract(Duration(days: jan4.weekday - 1));
+    return mondayWeek1.add(Duration(days: (semana.clamp(1, 53) - 1) * 7));
+  }
+
+  DateTime _finSemanaIso(int semana, {int? year}) {
+    return _inicioSemanaIso(semana, year: year).add(const Duration(days: 6));
+  }
+
+  String _fechaSemanaInicio(int semana) {
+    return DateFormat('yyyy-MM-dd').format(_inicioSemanaIso(semana));
+  }
+
+  String _fechaSemanaFin(int semana) {
+    return DateFormat('yyyy-MM-dd').format(_finSemanaIso(semana));
+  }
+
+@override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
 
@@ -1267,7 +1294,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               IconButton(
-                tooltip: 'Día anterior',
+                tooltip: 'DÃ­a anterior',
                 visualDensity: VisualDensity.compact,
                 onPressed: () => _cambiarFecha(-1),
                 icon: const Icon(Icons.chevron_left),
@@ -1280,7 +1307,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
                 ),
               ),
               IconButton(
-                tooltip: 'Día siguiente',
+                tooltip: 'DÃ­a siguiente',
                 visualDensity: VisualDensity.compact,
                 onPressed: () => _cambiarFecha(1),
                 icon: const Icon(Icons.chevron_right),
@@ -1433,7 +1460,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       transcurrido = transcurrido.clamp(0, duracion);
     }
     final restante = (duracion - transcurrido).clamp(0, duracion);
-    return 'Jornada $turno · ${_fmtMin(inicio)} - ${_fmtMin(fin)} · Transcurrido ${_fmtMin(transcurrido)} · Restante ${_fmtMin(restante)}';
+    return 'Jornada $turno Â· ${_fmtMin(inicio)} - ${_fmtMin(fin)} Â· Transcurrido ${_fmtMin(transcurrido)} Â· Restante ${_fmtMin(restante)}';
   }
 
   Widget _turnosBar() {
@@ -1469,7 +1496,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    '${_turnoFiltro == _turnoAutomaticoInicial() ? 'TURNO ACTUAL · Ya comenzó $_turnoFiltro · ' : ''}${_relojJornada(_turnoFiltro)}',
+                    '${_turnoFiltro == _turnoAutomaticoInicial() ? 'TURNO ACTUAL Â· Ya comenzÃ³ $_turnoFiltro Â· ' : ''}${_relojJornada(_turnoFiltro)}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w700),
@@ -1625,7 +1652,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
               ...ausentes.map((e) => _ausenteTile(e)),
               const SizedBox(height: 30),
               Text(
-                'Arrastra aquí a un empleado para dejarlo afuera/en espera.',
+                'Arrastra aquÃ­ a un empleado para dejarlo afuera/en espera.',
                 style: TextStyle(color: Colors.grey.shade700, fontStyle: FontStyle.italic),
               ),
             ],
@@ -1653,7 +1680,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
   }
 
   Widget _empleadoDraggable(EmpleadoMolinos e, bool canEdit) {
-    final card = EmpleadoMuneco(empleado: e, onTap: () => _detalle(e));
+    final card = _EmpleadoChip(empleado: e, onTap: () => _detalle(e));
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: canEdit
@@ -1661,7 +1688,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
               data: e,
               feedback: Material(
                 color: Colors.transparent,
-                child: EmpleadoMuneco(empleado: e, compacto: true),
+                child: _EmpleadoChip(empleado: e, onTap: () {}, compacto: true),
               ),
               childWhenDragging: Opacity(opacity: .35, child: card),
               child: card,
@@ -1685,7 +1712,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       dense: true,
       leading: const Icon(Icons.person_off),
       title: Text(e.nombre),
-      subtitle: Text('${e.puesto ?? ''} · ${e.turno ?? 'Sin turno'}'),
+      subtitle: Text('${e.puesto ?? ''} Â· ${e.resumenTurnoQueSigue}'),
       onTap: () => _detalle(e),
     );
   }
@@ -1775,17 +1802,18 @@ class _EmpleadoChip extends StatelessWidget {
     return week.clamp(1, 53);
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     final turnoColor = _colorFromName(empleado.turnoColor);
 
     if (compacto) {
-      final subtitulo = empleado.puesto ?? empleado.turno ?? 'Sin puesto';
+      final subtitulo = empleado.resumenTurnoQueSigue;
 
       return InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
+          width: compacto ? 320 : null,
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
@@ -1805,7 +1833,7 @@ class _EmpleadoChip extends StatelessWidget {
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  '${empleado.nombre} · $subtitulo',
+                  '${empleado.nombre} Â· $subtitulo',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
@@ -1840,19 +1868,45 @@ class _EmpleadoChip extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                [
-                  empleado.nombre,
-                  empleado.puesto ?? 'Sin puesto',
-                  empleado.maquinaNombre == null ? 'En espera / afuera' : 'Máquina: ${empleado.maquinaNombre}',
-                ].join(' · '),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: destacado ? 12 : 13,
-                  color: Colors.black87,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    [
+                      empleado.nombre,
+                      empleado.puesto ?? 'Sin puesto',
+                      empleado.maquinaNombre == null ? 'En espera / afuera' : 'MÃ¡quina: ${empleado.maquinaNombre}',
+                    ].join(' Â· '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: destacado ? 12 : 13,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    empleado.resumenTurnoQueSigue,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: destacado ? 10 : 11,
+                      color: Colors.blueGrey.shade700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    empleado.resumenRol,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: destacado ? 10 : 11,
+                      color: empleado.rolCompleto ? Colors.green.shade700 : Colors.orange.shade800,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
             ),
             if (empleado.acotacion != null) const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
@@ -1911,7 +1965,7 @@ class _EstadoAnimadoIconState extends State<_EstadoAnimadoIcon> with SingleTicke
     return week.clamp(1, 53);
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     final estado = widget.estado.toLowerCase();
     return AnimatedBuilder(
@@ -2042,7 +2096,7 @@ class _MaquinaMolinoCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        EmpleadoMuneco(empleado: e, onTap: () => onTap(e)),
+        _EmpleadoChip(empleado: e, onTap: () => onTap(e)),
         if (noCheco)
           Container(
             width: double.infinity,
@@ -2059,7 +2113,7 @@ class _MaquinaMolinoCard extends StatelessWidget {
                 SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'No está presente / no checó entrada',
+                    'No estÃ¡ presente / no checÃ³ entrada',
                     style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
@@ -2247,9 +2301,9 @@ class _MaquinaMolinoCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Próximo mantenimiento: ${maquina.mantenimientoFechaProxima}'
-                          '${maquina.mantenimientoDiasRestantes == null ? '' : ' · faltan ${maquina.mantenimientoDiasRestantes} días'}'
-                          '${maquina.mantenimientoProximo == null ? '' : ' · ${maquina.mantenimientoProximo}'}',
+                          'PrÃ³ximo mantenimiento: ${maquina.mantenimientoFechaProxima}'
+                          '${maquina.mantenimientoDiasRestantes == null ? '' : ' Â· faltan ${maquina.mantenimientoDiasRestantes} dÃ­as'}'
+                          '${maquina.mantenimientoProximo == null ? '' : ' Â· ${maquina.mantenimientoProximo}'}',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(fontWeight: FontWeight.bold, color: _colorSemaforo(maquina.mantenimientoSemaforo)),
@@ -2271,7 +2325,7 @@ class _MaquinaMolinoCard extends StatelessWidget {
                   padding: EdgeInsets.all(compacto ? 8 : 16),
                   decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
                   child: Text(
-                    compacto ? 'Vacío' : 'Arrastra empleados aquí. Si es LAVADOR, se queda en el molino y cambia a Limpieza.',
+                    compacto ? 'VacÃ­o' : 'Arrastra empleados aquÃ­. Si es LAVADOR, se queda en el molino y cambia a Limpieza.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.grey.shade700, fontSize: compacto ? 11 : 13),
                   ),
@@ -2289,7 +2343,7 @@ class _MaquinaMolinoCard extends StatelessWidget {
                             data: e,
                             feedback: Material(
                               color: Colors.transparent,
-                              child: EmpleadoMuneco(empleado: e, compacto: true),
+                              child: _EmpleadoChip(empleado: e, onTap: () {}, compacto: true),
                             ),
                             childWhenDragging: Opacity(opacity: .35, child: child),
                             child: child,
@@ -2304,3 +2358,4 @@ class _MaquinaMolinoCard extends StatelessWidget {
     );
   }
 }
+
