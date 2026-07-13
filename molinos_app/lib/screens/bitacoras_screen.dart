@@ -43,7 +43,8 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
     _StatusItem('1_5', '1 a 5 días', Icons.circle, Colors.red),
     _StatusItem('hoy', 'Hoy', Icons.warning_amber, Colors.orange),
     _StatusItem('vencido', 'Vencido', Icons.remove_circle, Colors.pink),
-    _StatusItem('en_espera', 'En espera', Icons.hourglass_empty, Colors.blueGrey),
+    _StatusItem(
+        'en_espera', 'En espera', Icons.hourglass_empty, Colors.blueGrey),
     _StatusItem('cerrado', 'Cerrado', Icons.check_box, Colors.green),
   ];
 
@@ -116,7 +117,8 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
         _maquinas = List<dynamic>.from(result[0] as List);
         _mantenimientos = List<dynamic>.from(result[1] as List);
         _bitacoras = List<dynamic>.from(bitData['bitacoras'] ?? []);
-        _alertasProximas = List<dynamic>.from(bitData['alertas_proximas'] ?? []);
+        _alertasProximas =
+            List<dynamic>.from(bitData['alertas_proximas'] ?? []);
         _alertasHoy = List<dynamic>.from(bitData['alertas_hoy'] ?? []);
         _conteos = Map<String, dynamic>.from(bitData['conteos'] ?? {});
         _pagina = 0;
@@ -218,7 +220,8 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
   String _statusTexto(String status) {
     final item = _statusItems.firstWhere(
       (e) => e.id == status,
-      orElse: () => const _StatusItem('en_espera', 'En espera', Icons.hourglass_empty, Colors.blueGrey),
+      orElse: () => const _StatusItem(
+          'en_espera', 'En espera', Icons.hourglass_empty, Colors.blueGrey),
     );
     return item.label;
   }
@@ -281,58 +284,59 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
         color: Colors.white,
         elevation: 1,
         child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 14, 22, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Bitácoras',
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Consulta por departamento, máquina, fallas y mantenimientos',
-              style: TextStyle(color: Colors.grey.shade700),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                FilledButton.icon(
-                  onPressed: _mostrarDialogBitacora,
-                  icon: const Icon(Icons.add_circle_outline),
-                  label: const Text('Nueva bitácora'),
-                ),
-                FilledButton.icon(
-                  onPressed: _mostrarDialogMantenimientos,
-                  icon: const Icon(Icons.build),
-                  label: const Text('+ Mantenimiento'),
-                  style: FilledButton.styleFrom(backgroundColor: Colors.green.shade700),
-                ),
-                OutlinedButton.icon(
-                  onPressed: _mostrarDialogMaquinas,
-                  icon: const Icon(Icons.precision_manufacturing),
-                  label: const Text('Máquinas'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: _mostrarDialogAreas,
-                  icon: const Icon(Icons.add_business),
-                  label: const Text('Áreas'),
-                ),
-                IconButton(
-                  tooltip: 'Actualizar',
-                  onPressed: _recargar,
-                  icon: const Icon(Icons.refresh),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _areasTabs(),
-            const SizedBox(height: 10),
-            _statusChips(),
-          ],
-        ),
+          padding: const EdgeInsets.fromLTRB(22, 14, 22, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Bitácoras',
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Consulta por departamento, máquina, fallas y mantenimientos',
+                style: TextStyle(color: Colors.grey.shade700),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  FilledButton.icon(
+                    onPressed: _mostrarDialogBitacora,
+                    icon: const Icon(Icons.add_circle_outline),
+                    label: const Text('Nueva bitácora'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: _mostrarDialogMantenimientos,
+                    icon: const Icon(Icons.build),
+                    label: const Text('+ Mantenimiento'),
+                    style: FilledButton.styleFrom(
+                        backgroundColor: Colors.green.shade700),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _mostrarDialogMaquinas,
+                    icon: const Icon(Icons.precision_manufacturing),
+                    label: const Text('Máquinas'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _mostrarDialogAreas,
+                    icon: const Icon(Icons.add_business),
+                    label: const Text('Áreas'),
+                  ),
+                  IconButton(
+                    tooltip: 'Actualizar',
+                    onPressed: _recargar,
+                    icon: const Icon(Icons.refresh),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _areasTabs(),
+              const SizedBox(height: 10),
+              _statusChips(),
+            ],
+          ),
         ),
       ),
     );
@@ -389,13 +393,15 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
       child: Row(
         children: _statusItems.map((item) {
           final selected = _status == item.id;
-          final count = item.id == 'TODOS' ? _bitacoras.length : (_conteos[item.id] ?? 0);
+          final count =
+              item.id == 'TODOS' ? _bitacoras.length : (_conteos[item.id] ?? 0);
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: FilterChip(
               selected: selected,
               avatar: Icon(item.icon, size: 18, color: item.color),
-              label: Text('${item.label}${item.id == 'TODOS' ? '' : ' ($count)'}'),
+              label:
+                  Text('${item.label}${item.id == 'TODOS' ? '' : ' ($count)'}'),
               onSelected: (_) async {
                 setState(() {
                   _status = item.id;
@@ -483,7 +489,8 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
                 const SizedBox(width: 10),
                 Text(
                   'Alertas de mantenimiento ($total)',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w900),
                 ),
                 const Spacer(),
                 Chip(
@@ -520,7 +527,8 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
     );
   }
 
-  Widget _alertaItem(Map<String, dynamic> b, MaterialColor color, IconData icon) {
+  Widget _alertaItem(
+      Map<String, dynamic> b, MaterialColor color, IconData icon) {
     return Container(
       constraints: const BoxConstraints(maxWidth: 380),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -537,7 +545,8 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
           Flexible(
             child: Text(
               _mensajeAlerta(b),
-              style: TextStyle(color: color.shade900, fontWeight: FontWeight.w700),
+              style:
+                  TextStyle(color: color.shade900, fontWeight: FontWeight.w700),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -576,14 +585,16 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
         const Spacer(),
         Text('Área: ${_areaNombreActual()}'),
         const SizedBox(width: 20),
-        Text('Total: ${_bitacoras.length}', style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text('Total: ${_bitacoras.length}',
+            style: const TextStyle(fontWeight: FontWeight.bold)),
       ],
     );
   }
 
   Widget _tablaBitacoras() {
     if (_bitacoras.isEmpty) {
-      return const Center(child: Text('No hay bitácoras con los filtros seleccionados.'));
+      return const Center(
+          child: Text('No hay bitácoras con los filtros seleccionados.'));
     }
 
     if (_pagina >= _totalPaginas) {
@@ -603,13 +614,16 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
                 child: Scrollbar(
                   controller: _tablaHorizontalCtrl,
                   thumbVisibility: true,
-                  notificationPredicate: (notification) => notification.depth == 1,
+                  notificationPredicate: (notification) =>
+                      notification.depth == 1,
                   child: SingleChildScrollView(
                     controller: _tablaHorizontalCtrl,
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
-                      headingRowColor: MaterialStateProperty.all(Colors.blue.shade800),
-                      headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      headingRowColor:
+                          MaterialStateProperty.all(Colors.blue.shade800),
+                      headingTextStyle: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold),
                       columns: const [
                         DataColumn(label: Text('MÁQUINA')),
                         DataColumn(label: Text('MANTENIMIENTO / FALLA')),
@@ -629,8 +643,11 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
                         final semaforo = _text(b['semaforo']);
                         return DataRow(
                           cells: [
-                            DataCell(_cellTitle(_text(b['maquina']), _text(b['area']))),
-                            DataCell(SizedBox(width: 230, child: Text(_text(b['mantenimiento'])))),
+                            DataCell(_cellTitle(
+                                _text(b['maquina']), _text(b['area']))),
+                            DataCell(SizedBox(
+                                width: 230,
+                                child: Text(_text(b['mantenimiento'])))),
                             DataCell(_statusIcon(semaforo)),
                             DataCell(_diasChip(semaforo, b['Dias'])),
                             DataCell(Text(_fechaDMY(b['fecha_inicio']))),
@@ -639,11 +656,14 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
                             DataCell(Text(_hora(b['Hora_termino']))),
                             DataCell(Text(_tiempoMuerto(b))),
                             DataCell(Text(_fechaDMY(b['fecha_proxima']))),
-                            DataCell(Text(_text(b['status_manto']).isEmpty ? '-' : _text(b['status_manto']))),
+                            DataCell(Text(_text(b['status_manto']).isEmpty
+                                ? '-'
+                                : _text(b['status_manto']))),
                             DataCell(
                               IconButton(
                                 tooltip: 'Editar / cerrar',
-                                onPressed: () => _mostrarDialogEditarBitacora(b),
+                                onPressed: () =>
+                                    _mostrarDialogEditarBitacora(b),
                                 icon: const Icon(Icons.settings),
                               ),
                             ),
@@ -687,7 +707,8 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
             },
           ),
           const Spacer(),
-          Text(_rangoPaginaTexto(), style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(_rangoPaginaTexto(),
+              style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(width: 12),
           IconButton(
             tooltip: 'Primera página',
@@ -702,12 +723,16 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
           Text('Página ${_pagina + 1} de $_totalPaginas'),
           IconButton(
             tooltip: 'Siguiente',
-            onPressed: _pagina >= _totalPaginas - 1 ? null : () => setState(() => _pagina++),
+            onPressed: _pagina >= _totalPaginas - 1
+                ? null
+                : () => setState(() => _pagina++),
             icon: const Icon(Icons.chevron_right),
           ),
           IconButton(
             tooltip: 'Última página',
-            onPressed: _pagina >= _totalPaginas - 1 ? null : () => setState(() => _pagina = _totalPaginas - 1),
+            onPressed: _pagina >= _totalPaginas - 1
+                ? null
+                : () => setState(() => _pagina = _totalPaginas - 1),
             icon: const Icon(Icons.last_page),
           ),
         ],
@@ -721,7 +746,9 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
-        if (subtitle.isNotEmpty) Text(subtitle, style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
+        if (subtitle.isNotEmpty)
+          Text(subtitle,
+              style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
       ],
     );
   }
@@ -729,7 +756,8 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
   Widget _statusIcon(String status) {
     final item = _statusItems.firstWhere(
       (e) => e.id == status,
-      orElse: () => const _StatusItem('en_espera', 'En espera', Icons.hourglass_empty, Colors.blueGrey),
+      orElse: () => const _StatusItem(
+          'en_espera', 'En espera', Icons.hourglass_empty, Colors.blueGrey),
     );
     return Tooltip(
       message: item.label,
@@ -740,11 +768,10 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
   Widget _diasChip(String status, dynamic dias) {
     final item = _statusItems.firstWhere(
       (e) => e.id == status,
-      orElse: () => const _StatusItem('en_espera', 'En espera', Icons.hourglass_empty, Colors.blueGrey),
+      orElse: () => const _StatusItem(
+          'en_espera', 'En espera', Icons.hourglass_empty, Colors.blueGrey),
     );
-    final label = status == 'cerrado'
-        ? 'Cerrado'
-        : _diasMantenimiento(dias);
+    final label = status == 'cerrado' ? 'Cerrado' : _diasMantenimiento(dias);
     return Chip(
       label: Text(label),
       visualDensity: VisualDensity.compact,
@@ -770,7 +797,8 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
                     Expanded(
                       child: TextField(
                         controller: ctrl,
-                        decoration: const InputDecoration(labelText: 'Nueva área'),
+                        decoration:
+                            const InputDecoration(labelText: 'Nueva área'),
                       ),
                     ),
                     IconButton(
@@ -816,7 +844,11 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
               ],
             ),
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar'))],
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cerrar'))
+          ],
         ),
       ),
     );
@@ -858,7 +890,11 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
             ],
           ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar'))],
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar'))
+        ],
       ),
     );
   }
@@ -887,7 +923,8 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
                   shrinkWrap: true,
                   itemCount: _mantenimientos.length,
                   itemBuilder: (_, i) {
-                    final m = Map<String, dynamic>.from(_mantenimientos[i] as Map);
+                    final m =
+                        Map<String, dynamic>.from(_mantenimientos[i] as Map);
                     return ListTile(
                       leading: const Icon(Icons.build),
                       title: Text(_text(m['tipo_mant'])),
@@ -896,13 +933,15 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
                         children: [
                           IconButton(
                             icon: const Icon(Icons.edit),
-                            onPressed: () => _mostrarAgregarMantenimiento(edit: m),
+                            onPressed: () =>
+                                _mostrarAgregarMantenimiento(edit: m),
                           ),
                           IconButton(
                             icon: const Icon(Icons.delete_outline),
                             onPressed: () async {
                               try {
-                                await _service.eliminarMantenimiento(_asInt(m['id'])!);
+                                await _service
+                                    .eliminarMantenimiento(_asInt(m['id'])!);
                                 await _recargar();
                                 if (mounted) Navigator.pop(context);
                               } catch (e) {
@@ -919,7 +958,11 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
             ],
           ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar'))],
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar'))
+        ],
       ),
     );
   }
@@ -934,16 +977,25 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nombreCtrl, decoration: const InputDecoration(labelText: 'Máquina')),
-            TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'Descripción')),
+            TextField(
+                controller: nombreCtrl,
+                decoration: const InputDecoration(labelText: 'Máquina')),
+            TextField(
+                controller: descCtrl,
+                decoration: const InputDecoration(labelText: 'Descripción')),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar')),
           FilledButton(
             onPressed: () async {
               try {
-                await _service.crearMaquina(nombre: nombreCtrl.text.trim(), descripcion: descCtrl.text.trim(), areaId: _areaId!);
+                await _service.crearMaquina(
+                    nombre: nombreCtrl.text.trim(),
+                    descripcion: descCtrl.text.trim(),
+                    areaId: _areaId!);
                 if (mounted) Navigator.pop(context);
                 await _recargar();
               } catch (e) {
@@ -957,29 +1009,45 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
     );
   }
 
-  Future<void> _mostrarAgregarMantenimiento({Map<String, dynamic>? edit}) async {
+  Future<void> _mostrarAgregarMantenimiento(
+      {Map<String, dynamic>? edit}) async {
     final tipoCtrl = TextEditingController(text: _text(edit?['tipo_mant']));
     final tiempoCtrl = TextEditingController(text: _text(edit?['tiempo_mant']));
     await showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text(edit == null ? 'Agregar mantenimiento' : 'Editar mantenimiento'),
+        title: Text(
+            edit == null ? 'Agregar mantenimiento' : 'Editar mantenimiento'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: tipoCtrl, decoration: const InputDecoration(labelText: 'Tipo de mantenimiento')),
-            TextField(controller: tiempoCtrl, decoration: const InputDecoration(labelText: 'Tiempo / días')),
+            TextField(
+                controller: tipoCtrl,
+                decoration:
+                    const InputDecoration(labelText: 'Tipo de mantenimiento')),
+            TextField(
+                controller: tiempoCtrl,
+                decoration: const InputDecoration(labelText: 'Tiempo / días')),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar')),
           FilledButton(
             onPressed: () async {
               try {
                 if (edit == null) {
-                  await _service.crearMantenimiento(tipoMant: tipoCtrl.text.trim(), tiempoMant: tiempoCtrl.text.trim(), areaId: _areaId!);
+                  await _service.crearMantenimiento(
+                      tipoMant: tipoCtrl.text.trim(),
+                      tiempoMant: tiempoCtrl.text.trim(),
+                      areaId: _areaId!);
                 } else {
-                  await _service.editarMantenimiento(id: _asInt(edit['id'])!, tipoMant: tipoCtrl.text.trim(), tiempoMant: tiempoCtrl.text.trim(), areaId: _areaId!);
+                  await _service.editarMantenimiento(
+                      id: _asInt(edit['id'])!,
+                      tipoMant: tipoCtrl.text.trim(),
+                      tiempoMant: tiempoCtrl.text.trim(),
+                      areaId: _areaId!);
                 }
                 if (mounted) Navigator.pop(context);
                 await _recargar();
@@ -1000,8 +1068,10 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
       return;
     }
 
-    int? maquinaId = _maquinas.isNotEmpty ? _asInt(_maquinas.first['id']) : null;
-    int? mantenimientoId = _mantenimientos.isNotEmpty ? _asInt(_mantenimientos.first['id']) : null;
+    int? maquinaId =
+        _maquinas.isNotEmpty ? _asInt(_maquinas.first['id']) : null;
+    int? mantenimientoId =
+        _mantenimientos.isNotEmpty ? _asInt(_mantenimientos.first['id']) : null;
     final operadorCtrl = TextEditingController();
     final descCtrl = TextEditingController();
 
@@ -1024,13 +1094,15 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
                         decoration: const InputDecoration(labelText: 'Máquina'),
                         selectedItemBuilder: (context) => _maquinas.map((raw) {
                           final m = Map<String, dynamic>.from(raw as Map);
-                          return Text(_text(m['nombre']), overflow: TextOverflow.ellipsis, maxLines: 1);
+                          return Text(_text(m['nombre']),
+                              overflow: TextOverflow.ellipsis, maxLines: 1);
                         }).toList(),
                         items: _maquinas.map((raw) {
                           final m = Map<String, dynamic>.from(raw as Map);
                           return DropdownMenuItem(
                             value: _asInt(m['id']),
-                            child: Text(_text(m['nombre']), overflow: TextOverflow.ellipsis, maxLines: 1),
+                            child: Text(_text(m['nombre']),
+                                overflow: TextOverflow.ellipsis, maxLines: 1),
                           );
                         }).toList(),
                         onChanged: (v) => setLocal(() => maquinaId = v),
@@ -1041,7 +1113,9 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
                       onPressed: () async {
                         await _mostrarAgregarMaquina();
                         setLocal(() {
-                          maquinaId = _maquinas.isNotEmpty ? _asInt(_maquinas.last['id']) : maquinaId;
+                          maquinaId = _maquinas.isNotEmpty
+                              ? _asInt(_maquinas.last['id'])
+                              : maquinaId;
                         });
                       },
                       icon: const Icon(Icons.add_circle),
@@ -1054,8 +1128,10 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
                       child: DropdownButtonFormField<int>(
                         value: mantenimientoId,
                         isExpanded: true,
-                        decoration: const InputDecoration(labelText: 'Mantenimiento / falla'),
-                        selectedItemBuilder: (context) => _mantenimientos.map((raw) {
+                        decoration: const InputDecoration(
+                            labelText: 'Mantenimiento / falla'),
+                        selectedItemBuilder: (context) =>
+                            _mantenimientos.map((raw) {
                           final m = Map<String, dynamic>.from(raw as Map);
                           return Text(
                             '${_text(m['tipo_mant'])} (${_text(m['tiempo_mant'])})',
@@ -1082,25 +1158,36 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
                       onPressed: () async {
                         await _mostrarAgregarMantenimiento();
                         setLocal(() {
-                          mantenimientoId = _mantenimientos.isNotEmpty ? _asInt(_mantenimientos.last['id']) : mantenimientoId;
+                          mantenimientoId = _mantenimientos.isNotEmpty
+                              ? _asInt(_mantenimientos.last['id'])
+                              : mantenimientoId;
                         });
                       },
                       icon: const Icon(Icons.add_circle),
                     ),
                   ],
                 ),
-                TextField(controller: operadorCtrl, decoration: const InputDecoration(labelText: 'Operador')),
-                TextField(controller: descCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'Descripción preventiva')),
+                TextField(
+                    controller: operadorCtrl,
+                    decoration: const InputDecoration(labelText: 'Operador')),
+                TextField(
+                    controller: descCtrl,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                        labelText: 'Descripción preventiva')),
                 const SizedBox(height: 8),
                 const Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('Fecha inicio y hora inicio se guardan en automático.'),
+                  child: Text(
+                      'Fecha inicio y hora inicio se guardan en automático.'),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar')),
             FilledButton(
               onPressed: () async {
                 try {
@@ -1127,10 +1214,14 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
   }
 
   Future<void> _mostrarDialogEditarBitacora(Map<String, dynamic> b) async {
-    final supervisor2Ctrl = TextEditingController(text: _text(b['Supervisor2']));
-    final descCorrecCtrl = TextEditingController(text: _text(b['descripcionCorrec']));
+    final supervisor2Ctrl =
+        TextEditingController(text: _text(b['Supervisor2']));
+    final descCorrecCtrl =
+        TextEditingController(text: _text(b['descripcionCorrec']));
     var cerrar = false;
-    var status = _text(b['status_manto']).isEmpty ? 'TRABAJANDO' : _text(b['status_manto']).toUpperCase();
+    var status = _text(b['status_manto']).isEmpty
+        ? 'TRABAJANDO'
+        : _text(b['status_manto']).toUpperCase();
 
     await showDialog<void>(
       context: context,
@@ -1143,14 +1234,18 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Máquina: ${_text(b['maquina'])}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text('Inicio: ${_fechaDMY(b['fecha_inicio'])} ${_hora(b['hora_inicio'])}'),
+                Text('Máquina: ${_text(b['maquina'])}',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                    'Inicio: ${_fechaDMY(b['fecha_inicio'])} ${_hora(b['hora_inicio'])}'),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: status,
-                  decoration: const InputDecoration(labelText: 'Status mantenimiento'),
+                  decoration:
+                      const InputDecoration(labelText: 'Status mantenimiento'),
                   items: const [
-                    DropdownMenuItem(value: 'TRABAJANDO', child: Text('Trabajando')),
+                    DropdownMenuItem(
+                        value: 'TRABAJANDO', child: Text('Trabajando')),
                     DropdownMenuItem(value: 'CERRADO', child: Text('Cerrado')),
                   ],
                   onChanged: (v) => setLocal(() {
@@ -1158,22 +1253,32 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
                     cerrar = status == 'CERRADO';
                   }),
                 ),
-                TextField(controller: supervisor2Ctrl, decoration: const InputDecoration(labelText: 'Supervisor2')),
-                TextField(controller: descCorrecCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'Descripción correctiva')),
+                TextField(
+                    controller: supervisor2Ctrl,
+                    decoration:
+                        const InputDecoration(labelText: 'Supervisor2')),
+                TextField(
+                    controller: descCorrecCtrl,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                        labelText: 'Descripción correctiva')),
                 CheckboxListTile(
                   value: cerrar,
                   onChanged: (v) => setLocal(() {
                     cerrar = v ?? false;
                     status = cerrar ? 'CERRADO' : 'TRABAJANDO';
                   }),
-                  title: const Text('Capturar fecha término y hora término automáticamente'),
+                  title: const Text(
+                      'Capturar fecha término y hora término automáticamente'),
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar')),
             FilledButton.icon(
               icon: const Icon(Icons.save),
               onPressed: () async {
@@ -1220,7 +1325,9 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
         title: Text(title),
         content: TextField(controller: ctrl),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar')),
           FilledButton(
             onPressed: () async {
               try {

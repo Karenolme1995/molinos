@@ -142,7 +142,6 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-
   Future<void> _abrirChecador() async {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -455,9 +454,8 @@ class _LoginScreenState extends State<LoginScreen>
               icon: Icons.lock_rounded,
               obscureText: !_verPassword,
               suffixIcon: IconButton(
-                tooltip: _verPassword
-                    ? 'Ocultar contraseña'
-                    : 'Mostrar contraseña',
+                tooltip:
+                    _verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña',
                 icon: Icon(
                   _verPassword
                       ? Icons.visibility_off_rounded
@@ -695,8 +693,8 @@ class _MolinosBackground extends CustomPainter {
       final random = math.Random(i);
       final x = random.nextDouble() * size.width;
       final baseY = random.nextDouble() * size.height;
-      final y = (baseY + progress * 90 * (0.5 + random.nextDouble())) %
-          size.height;
+      final y =
+          (baseY + progress * 90 * (0.5 + random.nextDouble())) % size.height;
 
       final radius = 2 + random.nextDouble() * 5;
 
@@ -721,8 +719,7 @@ class _MolinosBackground extends CustomPainter {
     for (double x = 0; x <= size.width; x++) {
       final y = size.height * 0.78 +
           math.sin(
-                (x / size.width * 2 * math.pi) +
-                    progress * 2 * math.pi,
+                (x / size.width * 2 * math.pi) + progress * 2 * math.pi,
               ) *
               24;
       path.lineTo(x, y);

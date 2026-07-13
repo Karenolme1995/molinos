@@ -46,7 +46,8 @@ class MaquinaMolinos {
       estadoHoraInicio: _asNullableString(json['estado_hora_inicio']),
       estadoFechaInicio: _asNullableString(json['estado_fecha_inicio']),
       estadoObservaciones: _asNullableString(json['estado_observaciones']),
-      mantenimientoFechaProxima: _asNullableString(json['mantenimiento_fecha_proxima']),
+      mantenimientoFechaProxima:
+          _asNullableString(json['mantenimiento_fecha_proxima']),
       mantenimientoProximo: _asNullableString(json['mantenimiento_proximo']),
       mantenimientoAlerta: _asBool(json['mantenimiento_alerta']),
       mantenimientoDiasRestantes: json['mantenimiento_dias_restantes'] == null
@@ -61,7 +62,8 @@ class MaquinaMolinos {
 
   DateTime? get estadoInicioDateTime {
     if (estadoFechaInicio == null || estadoHoraInicio == null) return null;
-    return DateTime.tryParse('$estadoFechaInicio ${estadoHoraInicio!.padRight(5, '0')}');
+    return DateTime.tryParse(
+        '$estadoFechaInicio ${estadoHoraInicio!.padRight(5, '0')}');
   }
 
   static int _asInt(dynamic value) {
@@ -77,6 +79,9 @@ class MaquinaMolinos {
 
   static bool _asBool(dynamic value) {
     if (value == null) return false;
-    return value == true || value == 1 || value == '1' || value.toString().toLowerCase() == 'true';
+    return value == true ||
+        value == 1 ||
+        value == '1' ||
+        value.toString().toLowerCase() == 'true';
   }
 }

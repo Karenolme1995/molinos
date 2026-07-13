@@ -1,4 +1,4 @@
-import 'dart:html' as html;
+import '../utils/web_file_picker.dart';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -55,14 +55,19 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
     super.dispose();
   }
 
-  MolinosService _service() => MolinosService(context.read<AuthService>().token!);
+  MolinosService _service() =>
+      MolinosService(context.read<AuthService>().token!);
 
   Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final service = _service();
       _turnosFiltro = _turnosUnicos(await service.turnos());
-      _empleados = await service.empleados(q: _qCtrl.text.trim(), turno: _turnoFiltro);
+      _empleados =
+          await service.empleados(q: _qCtrl.text.trim(), turno: _turnoFiltro);
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
     } finally {
@@ -78,8 +83,12 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
     final esNuevo = empleado == null;
     final nomina = TextEditingController(text: empleado?.numeroNomina ?? '');
     final nombre = TextEditingController(text: empleado?.nombre ?? '');
-    String puestoSeleccionado = _puestos.contains((empleado?.puesto ?? '').toUpperCase().trim()) ? (empleado?.puesto ?? '').toUpperCase().trim() : 'OTRO';
-    final responsabilidades = TextEditingController(text: empleado?.responsabilidades ?? '');
+    String puestoSeleccionado =
+        _puestos.contains((empleado?.puesto ?? '').toUpperCase().trim())
+            ? (empleado?.puesto ?? '').toUpperCase().trim()
+            : 'OTRO';
+    final responsabilidades =
+        TextEditingController(text: empleado?.responsabilidades ?? '');
     final telefono = TextEditingController(text: empleado?.telefono ?? '');
     final direccion = TextEditingController(text: empleado?.direccion ?? '');
     int activoSeleccionado = empleado?.activo ?? 1;
@@ -92,113 +101,144 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
         context: context,
         builder: (_) => StatefulBuilder(
           builder: (context, setDialogState) => AlertDialog(
-          title: Text(esNuevo ? 'Agregar empleado' : 'Editar empleado'),
-          content: SizedBox(
-            width: 520,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(controller: nomina, decoration: const InputDecoration(labelText: 'Nómina')),
-                  TextField(controller: nombre, decoration: const InputDecoration(labelText: 'Nombre')),
-                  DropdownButtonFormField<String>(
-                    value: puestoSeleccionado,
-                    items: _puestos.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-                    onChanged: (value) => puestoSeleccionado = value ?? 'OTRO',
-                    decoration: const InputDecoration(labelText: 'Puesto'),
-                  ),
-                  TextField(controller: responsabilidades, minLines: 2, maxLines: 4, decoration: const InputDecoration(labelText: 'Responsabilidades')),
-                  TextField(controller: telefono, decoration: const InputDecoration(labelText: 'Teléfono')),
-                  TextField(controller: direccion, decoration: const InputDecoration(labelText: 'Dirección')),
-                  DropdownButtonFormField<int>(
-                    value: activoSeleccionado,
-                    items: const [
-                      DropdownMenuItem(value: 1, child: Text('Activo')),
-                      DropdownMenuItem(value: 0, child: Text('Inactivo')),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setDialogState(() => activoSeleccionado = value);
-                    },
-                    decoration: const InputDecoration(labelText: 'Status'),
-                  ),
-                  const SizedBox(height: 10),
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text('Departamento: MOLINOS', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                  const SizedBox(height: 14),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.black12),
-                      borderRadius: BorderRadius.circular(12),
+            title: Text(esNuevo ? 'Agregar empleado' : 'Editar empleado'),
+            content: SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                        controller: nomina,
+                        decoration: const InputDecoration(labelText: 'Nómina')),
+                    TextField(
+                        controller: nombre,
+                        decoration: const InputDecoration(labelText: 'Nombre')),
+                    DropdownButtonFormField<String>(
+                      value: puestoSeleccionado,
+                      items: _puestos
+                          .map(
+                              (p) => DropdownMenuItem(value: p, child: Text(p)))
+                          .toList(),
+                      onChanged: (value) =>
+                          puestoSeleccionado = value ?? 'OTRO',
+                      decoration: const InputDecoration(labelText: 'Puesto'),
                     ),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 34,
-                          backgroundImage: fotoBytes != null
-                              ? MemoryImage(fotoBytes!)
-                              : _fotoProvider(fotoPreviewUrl),
-                          child: (fotoBytes == null && (fotoPreviewUrl == null || fotoPreviewUrl!.isEmpty))
-                              ? const Icon(Icons.person, size: 34)
-                              : null,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Foto del empleado', style: TextStyle(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 4),
-                              const Text('Se guardará en /uploads/empleados/', style: TextStyle(fontSize: 12, color: Colors.black54)),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                children: [
-                                  OutlinedButton.icon(
-                                    icon: const Icon(Icons.photo_camera),
-                                    label: const Text('Agregar / tomar foto'),
-                                    onPressed: () async {
-                                      final picked = await _seleccionarFoto();
-                                      if (picked == null) return;
-                                      setDialogState(() {
-                                        fotoBytes = picked.bytes;
-                                        fotoFilename = picked.filename;
-                                      });
-                                    },
-                                  ),
-                                  if (fotoBytes != null || (fotoPreviewUrl ?? '').isNotEmpty)
-                                    TextButton.icon(
-                                      icon: const Icon(Icons.close),
-                                      label: const Text('Quitar selección'),
-                                      onPressed: () {
+                    TextField(
+                        controller: responsabilidades,
+                        minLines: 2,
+                        maxLines: 4,
+                        decoration: const InputDecoration(
+                            labelText: 'Responsabilidades')),
+                    TextField(
+                        controller: telefono,
+                        decoration:
+                            const InputDecoration(labelText: 'Teléfono')),
+                    TextField(
+                        controller: direccion,
+                        decoration:
+                            const InputDecoration(labelText: 'Dirección')),
+                    DropdownButtonFormField<int>(
+                      value: activoSeleccionado,
+                      items: const [
+                        DropdownMenuItem(value: 1, child: Text('Activo')),
+                        DropdownMenuItem(value: 0, child: Text('Inactivo')),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setDialogState(() => activoSeleccionado = value);
+                      },
+                      decoration: const InputDecoration(labelText: 'Status'),
+                    ),
+                    const SizedBox(height: 10),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('Departamento: MOLINOS',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.black12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 34,
+                            backgroundImage: fotoBytes != null
+                                ? MemoryImage(fotoBytes!)
+                                : _fotoProvider(fotoPreviewUrl),
+                            child: (fotoBytes == null &&
+                                    (fotoPreviewUrl == null ||
+                                        fotoPreviewUrl!.isEmpty))
+                                ? const Icon(Icons.person, size: 34)
+                                : null,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Foto del empleado',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 4),
+                                const Text('Se guardará en /uploads/empleados/',
+                                    style: TextStyle(
+                                        fontSize: 12, color: Colors.black54)),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  children: [
+                                    OutlinedButton.icon(
+                                      icon: const Icon(Icons.photo_camera),
+                                      label: const Text('Agregar / tomar foto'),
+                                      onPressed: () async {
+                                        final picked = await _seleccionarFoto();
+                                        if (picked == null) return;
                                         setDialogState(() {
-                                          fotoBytes = null;
-                                          fotoFilename = null;
-                                          fotoPreviewUrl = null;
+                                          fotoBytes = picked.bytes;
+                                          fotoFilename = picked.filename;
                                         });
                                       },
                                     ),
-                                ],
-                              ),
-                            ],
+                                    if (fotoBytes != null ||
+                                        (fotoPreviewUrl ?? '').isNotEmpty)
+                                      TextButton.icon(
+                                        icon: const Icon(Icons.close),
+                                        label: const Text('Quitar selección'),
+                                        onPressed: () {
+                                          setDialogState(() {
+                                            fotoBytes = null;
+                                            fotoFilename = null;
+                                            fotoPreviewUrl = null;
+                                          });
+                                        },
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancelar')),
+              FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Guardar')),
+            ],
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Guardar')),
-          ],
-        ),
         ),
       );
 
@@ -258,8 +298,6 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
     }
   }
 
-
-
   List<TurnoMolino> _turnosUnicos(List<TurnoMolino> turnos) {
     final Map<int, TurnoMolino> map = {};
     for (final t in turnos) {
@@ -278,7 +316,9 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
   ImageProvider? _fotoProvider(String? foto) {
     final value = foto?.trim() ?? '';
     if (value.isEmpty) return null;
-    final url = value.startsWith('http') ? value : '${ApiService.baseUrl.replaceFirst('/api/v1', '')}$value';
+    final url = value.startsWith('http')
+        ? value
+        : '${ApiService.baseUrl.replaceFirst('/api/v1', '')}$value';
     return NetworkImage(url);
   }
 
@@ -305,20 +345,24 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
     } else if (result is List<int>) {
       bytes = Uint8List.fromList(result);
     } else {
-      throw Exception('No se pudo leer la foto seleccionada. Intenta con otra imagen JPG, PNG o WEBP.');
+      throw Exception(
+          'No se pudo leer la foto seleccionada. Intenta con otra imagen JPG, PNG o WEBP.');
     }
 
-    return _FotoSeleccionada(bytes: bytes, filename: file.name.isEmpty ? 'empleado.jpg' : file.name);
+    return _FotoSeleccionada(
+        bytes: bytes, filename: file.name.isEmpty ? 'empleado.jpg' : file.name);
   }
 
   Future<void> _subirFoto(EmpleadoMolinos empleado) async {
     final picked = await _seleccionarFoto();
     if (picked == null) return;
-    await _service().subirFotoEmpleado(empleadoId: empleado.id, bytes: picked.bytes, filename: picked.filename);
+    await _service().subirFotoEmpleado(
+        empleadoId: empleado.id,
+        bytes: picked.bytes,
+        filename: picked.filename);
     _msg('Foto guardada en /uploads/empleados/.');
     await _load();
   }
-
 
   DateTime _inicioSemanaIso(int semana, {int? year}) {
     final targetYear = year ?? DateTime.now().year;
@@ -354,7 +398,8 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
   Future<void> _editarRotacion(EmpleadoMolinos empleado) async {
     final service = _service();
     List<TurnoMolino> turnos = _turnosUnicos(await service.turnos());
-    List<RotacionTurnoMolino> rotacion = await service.rotacionEmpleado(empleado.id);
+    List<RotacionTurnoMolino> rotacion =
+        await service.rotacionEmpleado(empleado.id);
 
     if (turnos.isEmpty) {
       _msg('No hay turnos activos para asignar.');
@@ -394,8 +439,11 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                       final i = entry.key;
                       final r = entry.value;
                       final semanaActual = _semanaDelAnio(DateTime.now());
-                      final maxSemana = math.max(53, rotacion.map((x) => x.semanaOrden).reduce(math.max));
-                      final semanaValue = r.semanaOrden <= 0 ? _semanaDelAnio(DateTime.now()) : r.semanaOrden;
+                      final maxSemana = math.max(53,
+                          rotacion.map((x) => x.semanaOrden).reduce(math.max));
+                      final semanaValue = r.semanaOrden <= 0
+                          ? _semanaDelAnio(DateTime.now())
+                          : r.semanaOrden;
                       final turnoValue = _turnoValido(r.turnoId, turnos);
                       final fechaInicioAuto = _fechaSemanaInicio(semanaValue);
                       final fechaFinAuto = _fechaSemanaFin(semanaValue);
@@ -412,8 +460,13 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                                     width: 190,
                                     child: DropdownButtonFormField<int>(
                                       value: semanaValue,
-                                      items: List.generate((maxSemana - semanaActual) + 1, (idx) => semanaActual + idx)
-                                          .map<DropdownMenuItem<int>>((w) => DropdownMenuItem<int>(value: w, child: Text('Semana $w')))
+                                      items: List.generate(
+                                              (maxSemana - semanaActual) + 1,
+                                              (idx) => semanaActual + idx)
+                                          .map<DropdownMenuItem<int>>((w) =>
+                                              DropdownMenuItem<int>(
+                                                  value: w,
+                                                  child: Text('Semana $w')))
                                           .toList(),
                                       onChanged: (value) {
                                         if (value == null) return;
@@ -424,7 +477,8 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                                           );
                                         });
                                       },
-                                      decoration: const InputDecoration(labelText: 'Semana'),
+                                      decoration: const InputDecoration(
+                                          labelText: 'Semana'),
                                     ),
                                   ),
                                   const SizedBox(width: 10),
@@ -435,7 +489,8 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                                           .map<DropdownMenuItem<int>>(
                                             (t) => DropdownMenuItem<int>(
                                               value: t.id,
-                                              child: Text('${t.nombre} ${t.horaInicio ?? ''}-${t.horaFin ?? ''}'),
+                                              child: Text(
+                                                  '${t.nombre} ${t.horaInicio ?? ''}-${t.horaFin ?? ''}'),
                                             ),
                                           )
                                           .toList(),
@@ -448,12 +503,16 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                                           );
                                         });
                                       },
-                                      decoration: const InputDecoration(labelText: 'Turno'),
+                                      decoration: const InputDecoration(
+                                          labelText: 'Turno'),
                                     ),
                                   ),
                                   IconButton(
                                     tooltip: 'Quitar semana',
-                                    onPressed: rotacion.length == 1 ? null : () => setDialogState(() => rotacion.removeAt(i)),
+                                    onPressed: rotacion.length == 1
+                                        ? null
+                                        : () => setDialogState(
+                                            () => rotacion.removeAt(i)),
                                     icon: const Icon(Icons.delete_outline),
                                   ),
                                 ],
@@ -464,12 +523,16 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                                 runSpacing: 6,
                                 children: [
                                   Chip(
-                                    avatar: const Icon(Icons.event_available, size: 18),
-                                    label: Text('Inicio: ${r.fechaInicio ?? fechaInicioAuto}'),
+                                    avatar: const Icon(Icons.event_available,
+                                        size: 18),
+                                    label: Text(
+                                        'Inicio: ${r.fechaInicio ?? fechaInicioAuto}'),
                                   ),
                                   Chip(
-                                    avatar: const Icon(Icons.event_busy, size: 18),
-                                    label: Text('Fin: ${r.fechaFin ?? fechaFinAuto}'),
+                                    avatar:
+                                        const Icon(Icons.event_busy, size: 18),
+                                    label: Text(
+                                        'Fin: ${r.fechaFin ?? fechaFinAuto}'),
                                   ),
                                 ],
                               ),
@@ -482,7 +545,12 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                       alignment: Alignment.centerLeft,
                       child: TextButton.icon(
                         onPressed: () => setDialogState(() {
-                          final nextWeek = rotacion.isEmpty ? _semanaDelAnio(DateTime.now()) : rotacion.map((r) => r.semanaOrden).reduce(math.max) + 1;
+                          final nextWeek = rotacion.isEmpty
+                              ? _semanaDelAnio(DateTime.now())
+                              : rotacion
+                                      .map((r) => r.semanaOrden)
+                                      .reduce(math.max) +
+                                  1;
                           rotacion.add(
                             _rotacionConFechas(
                               semanaOrden: nextWeek,
@@ -499,8 +567,12 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-              FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Guardar rotación')),
+              TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancelar')),
+              FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Guardar rotación')),
             ],
           );
         },
@@ -508,16 +580,22 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
     );
 
     if (ok == true) {
-      await service.guardarRotacionEmpleado(empleadoId: empleado.id, rotacion: rotacion);
+      await service.guardarRotacionEmpleado(
+          empleadoId: empleado.id, rotacion: rotacion);
       _msg('Rotación semanal actualizada.');
       await _load();
     }
   }
 
   int _semanaDelAnio(DateTime date) {
-    final thursday = date.add(Duration(days: 4 - (date.weekday == 7 ? 7 : date.weekday)));
+    final thursday =
+        date.add(Duration(days: 4 - (date.weekday == 7 ? 7 : date.weekday)));
     final firstThursday = DateTime(thursday.year, 1, 4);
-    final week = 1 + ((thursday.difference(firstThursday).inDays + (firstThursday.weekday == 7 ? 7 : firstThursday.weekday) - 1) ~/ 7);
+    final week = 1 +
+        ((thursday.difference(firstThursday).inDays +
+                (firstThursday.weekday == 7 ? 7 : firstThursday.weekday) -
+                1) ~/
+            7);
     return week.clamp(1, 53);
   }
 
@@ -530,18 +608,26 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              Text('Empleados Molinos · Semana del año ${_semanaDelAnio(DateTime.now())}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              Text(
+                  'Empleados Molinos · Semana del año ${_semanaDelAnio(DateTime.now())}',
+                  style: const TextStyle(
+                      fontSize: 22, fontWeight: FontWeight.bold)),
               const SizedBox(width: 16),
               Expanded(
                 child: TextField(
                   controller: _qCtrl,
-                  decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Buscar por nombre, nómina o puesto'),
+                  decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      hintText: 'Buscar por nombre, nómina o puesto'),
                   onSubmitted: (_) => _load(),
                 ),
               ),
               const SizedBox(width: 8),
               IconButton(onPressed: _load, icon: const Icon(Icons.search)),
-              FilledButton.icon(onPressed: () => _editar(), icon: const Icon(Icons.add), label: const Text('Agregar')),
+              FilledButton.icon(
+                  onPressed: () => _editar(),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Agregar')),
             ],
           ),
         ),
@@ -555,7 +641,8 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
               runSpacing: 6,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                const Text('Filtrar turno:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Filtrar turno:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 ChoiceChip(
                   label: const Text('TODOS'),
                   selected: _turnoFiltro == 'TODOS',
@@ -565,13 +652,13 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                   },
                 ),
                 ..._turnosFiltro.map((t) => ChoiceChip(
-                  label: Text(t.nombre),
-                  selected: _turnoFiltro == t.nombre.toUpperCase(),
-                  onSelected: (_) {
-                    setState(() => _turnoFiltro = t.nombre.toUpperCase());
-                    _load();
-                  },
-                )),
+                      label: Text(t.nombre),
+                      selected: _turnoFiltro == t.nombre.toUpperCase(),
+                      onSelected: (_) {
+                        setState(() => _turnoFiltro = t.nombre.toUpperCase());
+                        _load();
+                      },
+                    )),
               ],
             ),
           ),
@@ -579,7 +666,9 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
           child: _loading
               ? const Center(child: CircularProgressIndicator())
               : _error != null
-                  ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+                  ? Center(
+                      child: Text(_error!,
+                          style: const TextStyle(color: Colors.red)))
                   : ListView.separated(
                       padding: const EdgeInsets.all(12),
                       itemCount: _empleados.length,
@@ -589,9 +678,13 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                         return ListTile(
                           leading: CircleAvatar(
                             backgroundImage: _fotoProvider(e.foto),
-                            child: (e.foto ?? '').isEmpty ? const Icon(Icons.person) : null,
+                            child: (e.foto ?? '').isEmpty
+                                ? const Icon(Icons.person)
+                                : null,
                           ),
-                          title: Text(e.nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          title: Text(e.nombre,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Text(
                             'Nómina: ${e.numeroNomina} · ${e.puesto ?? 'Sin puesto'} · Actual: ${e.turno ?? 'Sin turno'} · Sigue: ${e.proximoTurno ?? 'Sin próximo turno'} · ${e.status ?? (e.activo == 1 ? 'ACTIVO' : 'INACTIVO')}',
                           ),

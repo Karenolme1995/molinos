@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -54,7 +54,8 @@ class _MolinosScreenState extends State<MolinosScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
-    _turnoAutoTimer = Timer.periodic(const Duration(minutes: 1), (_) => _verificarCambioAutomaticoTurno());
+    _turnoAutoTimer = Timer.periodic(
+        const Duration(minutes: 1), (_) => _verificarCambioAutomaticoTurno());
   }
 
   @override
@@ -82,7 +83,8 @@ class _MolinosScreenState extends State<MolinosScreen> {
     });
     try {
       final token = context.read<AuthService>().token!;
-      final data = await MolinosService(token).tablero(_fecha, turno: _turnoFiltro, vista: 'dia');
+      final data = await MolinosService(token)
+          .tablero(_fecha, turno: _turnoFiltro, vista: 'dia');
       if (!mounted) return;
       setState(() => _tablero = data);
     } catch (e) {
@@ -128,7 +130,8 @@ class _MolinosScreenState extends State<MolinosScreen> {
   Future<void> _quitarDeMaquina(EmpleadoMolinos empleado) async {
     try {
       final token = context.read<AuthService>().token!;
-      await MolinosService(token).quitarEmpleado(empleadoId: empleado.id, fecha: _fecha);
+      await MolinosService(token)
+          .quitarEmpleado(empleadoId: empleado.id, fecha: _fecha);
       await _load();
       if (_esLavador(empleado)) {
         _ok('Lavador regresado a espera. Limpieza terminada.');
@@ -171,7 +174,8 @@ class _MolinosScreenState extends State<MolinosScreen> {
     return text.isEmpty ? null : text;
   }
 
-  Future<Map<String, dynamic>?> _pedirDatosEstado(MaquinaMolinos maquina, String estado) async {
+  Future<Map<String, dynamic>?> _pedirDatosEstado(
+      MaquinaMolinos maquina, String estado) async {
     String observaciones = '';
     String mantenimiento = '';
     String descripcionPreven = '';
@@ -182,7 +186,8 @@ class _MolinosScreenState extends State<MolinosScreen> {
     String buscarMantenimiento = '';
 
     final esMantenimiento = estado == 'mantenimiento';
-    final cierraMantenimiento = maquina.estado == 'mantenimiento' && estado != 'mantenimiento';
+    final cierraMantenimiento =
+        maquina.estado == 'mantenimiento' && estado != 'mantenimiento';
     List<MantenimientoMolino> mantenimientos = const [];
 
     if (esMantenimiento) {
@@ -214,7 +219,9 @@ class _MolinosScreenState extends State<MolinosScreen> {
     return showDialog<Map<String, dynamic>>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(esMantenimiento ? 'Abrir bitÃ¡cora de mantenimiento' : 'Cambiar ${maquina.nombre}'),
+        title: Text(esMantenimiento
+            ? 'Abrir bitÃ¡cora de mantenimiento'
+            : 'Cambiar ${maquina.nombre}'),
         content: SizedBox(
           width: 460,
           child: SingleChildScrollView(
@@ -239,7 +246,8 @@ class _MolinosScreenState extends State<MolinosScreen> {
                               Expanded(
                                 child: TextField(
                                   onChanged: (value) {
-                                    setDialogState(() => buscarMantenimiento = value);
+                                    setDialogState(
+                                        () => buscarMantenimiento = value);
                                   },
                                   decoration: InputDecoration(
                                     labelText: 'Buscar mantenimiento',
@@ -247,7 +255,9 @@ class _MolinosScreenState extends State<MolinosScreen> {
                                     helperText: mantenimientos.isEmpty
                                         ? 'No hay mantenimientos activos para el Ã¡rea MOLINOS'
                                         : 'Se carga desde la tabla mantenimientos',
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(12)),
                                   ),
                                 ),
                               ),
@@ -262,7 +272,8 @@ class _MolinosScreenState extends State<MolinosScreen> {
                                     final ok = await showDialog<bool>(
                                       context: dialogContext,
                                       builder: (_) => AlertDialog(
-                                        title: const Text('Nuevo mantenimiento MOLINOS'),
+                                        title: const Text(
+                                            'Nuevo mantenimiento MOLINOS'),
                                         content: SizedBox(
                                           width: 420,
                                           child: Column(
@@ -270,22 +281,34 @@ class _MolinosScreenState extends State<MolinosScreen> {
                                             children: [
                                               TextField(
                                                 controller: tipoCtrl,
-                                                decoration: const InputDecoration(labelText: 'Tipo mantenimiento'),
+                                                decoration: const InputDecoration(
+                                                    labelText:
+                                                        'Tipo mantenimiento'),
                                               ),
                                               TextField(
                                                 controller: tiempoCtrl,
-                                                decoration: const InputDecoration(
-                                                  labelText: 'Tiempo / frecuencia en dÃ­as',
-                                                  hintText: 'Ejemplo: 7, 15, 30',
+                                                decoration:
+                                                    const InputDecoration(
+                                                  labelText:
+                                                      'Tiempo / frecuencia en dÃ­as',
+                                                  hintText:
+                                                      'Ejemplo: 7, 15, 30',
                                                 ),
-                                                keyboardType: TextInputType.number,
+                                                keyboardType:
+                                                    TextInputType.number,
                                               ),
                                             ],
                                           ),
                                         ),
                                         actions: [
-                                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-                                          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Guardar')),
+                                          TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context, false),
+                                              child: const Text('Cancelar')),
+                                          FilledButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context, true),
+                                              child: const Text('Guardar')),
                                         ],
                                       ),
                                     );
@@ -293,19 +316,29 @@ class _MolinosScreenState extends State<MolinosScreen> {
                                       final tipo = tipoCtrl.text.trim();
                                       final tiempo = tiempoCtrl.text.trim();
                                       if (tipo.isEmpty || tiempo.isEmpty) {
-                                        _showError('Tipo y tiempo son obligatorios');
+                                        _showError(
+                                            'Tipo y tiempo son obligatorios');
                                         return;
                                       }
-                                      final token = this.context.read<AuthService>().token!;
+                                      final token = this
+                                          .context
+                                          .read<AuthService>()
+                                          .token!;
                                       final service = MolinosService(token);
-                                      final nuevoMant = await service.crearMantenimientoMolinos(tipoMant: tipo, tiempoMant: tiempo);
-                                      final actualizados = await service.mantenimientosMolinos();
+                                      final nuevoMant = await service
+                                          .crearMantenimientoMolinos(
+                                              tipoMant: tipo,
+                                              tiempoMant: tiempo);
+                                      final actualizados =
+                                          await service.mantenimientosMolinos();
                                       setDialogState(() {
                                         mantenimientos = actualizados;
                                         mantenimientoId = nuevoMant.id;
                                         mantenimiento = tipo;
                                         diasAuto = diasDesdeTiempoMant(tiempo);
-                                        fechaProximaAuto = diasAuto == null ? '' : fechaProximaDesdeDias(diasAuto!);
+                                        fechaProximaAuto = diasAuto == null
+                                            ? ''
+                                            : fechaProximaDesdeDias(diasAuto!);
                                       });
                                       _ok('Mantenimiento agregado al catÃ¡logo.');
                                     }
@@ -327,22 +360,30 @@ class _MolinosScreenState extends State<MolinosScreen> {
                             child: ListView.separated(
                               shrinkWrap: true,
                               itemCount: filtrados.length,
-                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
                               itemBuilder: (_, index) {
                                 final m = filtrados[index];
                                 final seleccionado = mantenimientoId == m.id;
                                 return ListTile(
                                   dense: true,
                                   selected: seleccionado,
-                                  leading: Icon(seleccionado ? Icons.check_circle : Icons.build_outlined),
-                                  title: Text(m.tipoMant, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  leading: Icon(seleccionado
+                                      ? Icons.check_circle
+                                      : Icons.build_outlined),
+                                  title: Text(m.tipoMant,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis),
                                   subtitle: Text('Frecuencia: ${m.tiempoMant}'),
                                   onTap: () {
                                     setDialogState(() {
                                       mantenimientoId = m.id;
                                       mantenimiento = m.tipoMant;
-                                      diasAuto = diasDesdeTiempoMant(m.tiempoMant);
-                                      fechaProximaAuto = diasAuto == null ? '' : fechaProximaDesdeDias(diasAuto!);
+                                      diasAuto =
+                                          diasDesdeTiempoMant(m.tiempoMant);
+                                      fechaProximaAuto = diasAuto == null
+                                          ? ''
+                                          : fechaProximaDesdeDias(diasAuto!);
                                     });
                                   },
                                 );
@@ -372,7 +413,8 @@ class _MolinosScreenState extends State<MolinosScreen> {
                     onChanged: (value) => descripcionPreven = value,
                     decoration: InputDecoration(
                       labelText: 'DescripciÃ³n preventiva / inicio',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ] else ...[
@@ -381,9 +423,14 @@ class _MolinosScreenState extends State<MolinosScreen> {
                     autofocus: true,
                     onChanged: (value) => observaciones = value,
                     decoration: InputDecoration(
-                      labelText: cierraMantenimiento ? 'DescripciÃ³n correctiva / tÃ©rmino' : 'Observaciones',
-                      hintText: cierraMantenimiento ? 'QuÃ© se corrigiÃ³ o cÃ³mo terminÃ³ el mantenimiento' : 'Opcional',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      labelText: cierraMantenimiento
+                          ? 'DescripciÃ³n correctiva / tÃ©rmino'
+                          : 'Observaciones',
+                      hintText: cierraMantenimiento
+                          ? 'QuÃ© se corrigiÃ³ o cÃ³mo terminÃ³ el mantenimiento'
+                          : 'Opcional',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ],
@@ -392,14 +439,17 @@ class _MolinosScreenState extends State<MolinosScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar')),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, {
               'observaciones': observaciones,
               'mantenimiento': mantenimiento,
               'mantenimiento_id': mantenimientoId,
               'descripcion_preven': descripcionPreven,
-              'descripcion_correc': cierraMantenimiento ? observaciones : descripcionCorrec,
+              'descripcion_correc':
+                  cierraMantenimiento ? observaciones : descripcionCorrec,
               'dias': diasAuto,
               'fecha_proxima': fechaProximaAuto,
             }),
@@ -421,11 +471,13 @@ class _MolinosScreenState extends State<MolinosScreen> {
       );
       final rows = List<MaquinaHistorialMolino>.from(data['historial'] as List);
       final conteos = Map<String, dynamic>.from(data['conteos'] ?? {});
-      final fichaTecnica = Map<String, dynamic>.from(data['ficha_tecnica'] ?? {});
+      final fichaTecnica =
+          Map<String, dynamic>.from(data['ficha_tecnica'] ?? {});
       if (!mounted) return;
 
       final historial = rows.where((h) => h.tipo != 'mantenimiento').toList();
-      final mantenimientos = rows.where((h) => h.tipo == 'mantenimiento').toList();
+      final mantenimientos =
+          rows.where((h) => h.tipo == 'mantenimiento').toList();
       final asignaciones = rows.where((h) => h.tipo == 'asignacion').toList();
 
       showDialog(
@@ -458,18 +510,32 @@ class _MolinosScreenState extends State<MolinosScreen> {
                   const SizedBox(height: 8),
                   TabBar(
                     tabs: [
-                      Tab(icon: const Icon(Icons.history), text: 'Estados/asig. (${conteos['estados_asignaciones'] ?? historial.length})'),
-                      Tab(icon: const Icon(Icons.build), text: 'Mantenimientos (${conteos['mantenimientos'] ?? mantenimientos.length})'),
-                      const Tab(icon: Icon(Icons.description), text: 'Ficha tÃ©cnica'),
-                      const Tab(icon: Icon(Icons.people), text: 'Personas por turno'),
+                      Tab(
+                          icon: const Icon(Icons.history),
+                          text:
+                              'Estados/asig. (${conteos['estados_asignaciones'] ?? historial.length})'),
+                      Tab(
+                          icon: const Icon(Icons.build),
+                          text:
+                              'Mantenimientos (${conteos['mantenimientos'] ?? mantenimientos.length})'),
+                      const Tab(
+                          icon: Icon(Icons.description),
+                          text: 'Ficha tÃ©cnica'),
+                      const Tab(
+                          icon: Icon(Icons.people), text: 'Personas por turno'),
                     ],
                   ),
                   const SizedBox(height: 10),
                   Expanded(
                     child: TabBarView(
                       children: [
-                        _historialList(historial, vacio: 'Sin historial para esta vista y turno.', maquina: maquina),
-                        _historialList(mantenimientos, vacio: 'Sin mantenimientos registrados para este molino.', maquina: maquina),
+                        _historialList(historial,
+                            vacio: 'Sin historial para esta vista y turno.',
+                            maquina: maquina),
+                        _historialList(mantenimientos,
+                            vacio:
+                                'Sin mantenimientos registrados para este molino.',
+                            maquina: maquina),
                         _fichaTecnicaMaquina(maquina, fichaTecnica),
                         _personasAsignadasPorTurno(asignaciones),
                       ],
@@ -479,7 +545,11 @@ class _MolinosScreenState extends State<MolinosScreen> {
               ),
             ),
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar'))],
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cerrar'))
+          ],
         ),
       );
     } catch (e) {
@@ -487,7 +557,8 @@ class _MolinosScreenState extends State<MolinosScreen> {
     }
   }
 
-  Widget _historialList(List<MaquinaHistorialMolino> rows, {required String vacio, MaquinaMolinos? maquina}) {
+  Widget _historialList(List<MaquinaHistorialMolino> rows,
+      {required String vacio, MaquinaMolinos? maquina}) {
     if (rows.isEmpty) return Center(child: Text(vacio));
     return ListView.separated(
       itemCount: rows.length,
@@ -506,17 +577,23 @@ class _MolinosScreenState extends State<MolinosScreen> {
             color: color.withOpacity(.08),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: color.withOpacity(.75), width: h.semaforo == null ? 1 : 2),
+              side: BorderSide(
+                  color: color.withOpacity(.75),
+                  width: h.semaforo == null ? 1 : 2),
             ),
             child: ListTile(
               leading: Icon(Icons.build_circle_outlined, color: color),
-              title: Text(h.titulo, style: const TextStyle(fontWeight: FontWeight.bold)),
+              title: Text(h.titulo,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text([
                 'Inicio: ${h.fecha} ${h.hora}',
-                if (h.fechaProxima?.isNotEmpty == true) 'PrÃ³ximo: ${h.fechaProxima} $restante',
+                if (h.fechaProxima?.isNotEmpty == true)
+                  'PrÃ³ximo: ${h.fechaProxima} $restante',
                 if (h.dias != null) 'Frecuencia: ${h.dias} dÃ­as',
-                if (h.statusManto?.isNotEmpty == true) 'Estatus: ${h.statusManto}',
-                if (h.tiempoMuerto?.isNotEmpty == true) 'Tiempo muerto: ${h.tiempoMuerto}',
+                if (h.statusManto?.isNotEmpty == true)
+                  'Estatus: ${h.statusManto}',
+                if (h.tiempoMuerto?.isNotEmpty == true)
+                  'Tiempo muerto: ${h.tiempoMuerto}',
               ].join(' Â· ')),
               onTap: () => _verBitacoraFormato(h),
               trailing: Wrap(
@@ -540,8 +617,10 @@ class _MolinosScreenState extends State<MolinosScreen> {
         }
         return ListTile(
           dense: true,
-          leading: Icon(h.tipo == 'estado' ? Icons.settings_suggest : Icons.person),
-          title: Text(h.titulo, style: const TextStyle(fontWeight: FontWeight.bold)),
+          leading:
+              Icon(h.tipo == 'estado' ? Icons.settings_suggest : Icons.person),
+          title: Text(h.titulo,
+              style: const TextStyle(fontWeight: FontWeight.bold)),
           subtitle: Text([
             '${h.fecha} ${h.hora}',
             if (h.turno?.isNotEmpty == true) h.turno!,
@@ -553,13 +632,17 @@ class _MolinosScreenState extends State<MolinosScreen> {
     );
   }
 
-
-  Widget _fichaTecnicaMaquina(MaquinaMolinos maquina, Map<String, dynamic> ficha) {
+  Widget _fichaTecnicaMaquina(
+      MaquinaMolinos maquina, Map<String, dynamic> ficha) {
     final rows = <MapEntry<String, String>>[
       MapEntry('MÃ¡quina', (ficha['nombre'] ?? maquina.nombre).toString()),
       MapEntry('Ãrea', (ficha['area'] ?? 'MOLINOS').toString()),
-      MapEntry('DescripciÃ³n', (ficha['descripcion'] ?? maquina.descripcion ?? 'Sin descripciÃ³n').toString()),
-      MapEntry('CÃ³digo interno', (ficha['codigo'] ?? 'Sin capturar').toString()),
+      MapEntry(
+          'DescripciÃ³n',
+          (ficha['descripcion'] ?? maquina.descripcion ?? 'Sin descripciÃ³n')
+              .toString()),
+      MapEntry(
+          'CÃ³digo interno', (ficha['codigo'] ?? 'Sin capturar').toString()),
       MapEntry('Marca', (ficha['marca'] ?? 'Sin capturar').toString()),
       MapEntry('Modelo', (ficha['modelo'] ?? 'Sin capturar').toString()),
       MapEntry('Serie', (ficha['serie'] ?? 'Sin capturar').toString()),
@@ -568,15 +651,27 @@ class _MolinosScreenState extends State<MolinosScreen> {
       MapEntry('Voltaje', (ficha['voltaje'] ?? 'Sin capturar').toString()),
       MapEntry('Potencia', (ficha['potencia'] ?? 'Sin capturar').toString()),
       MapEntry('Proveedor', (ficha['proveedor'] ?? 'Sin capturar').toString()),
-      MapEntry('Fecha instalaciÃ³n', (ficha['fecha_instalacion'] ?? 'Sin capturar').toString()),
+      MapEntry('Fecha instalaciÃ³n',
+          (ficha['fecha_instalacion'] ?? 'Sin capturar').toString()),
       MapEntry('Fecha alta', (ficha['fecha_alta'] ?? 'Sin dato').toString()),
-      MapEntry('Ãšltima actualizaciÃ³n', (ficha['actualizado'] ?? 'Sin dato').toString()),
+      MapEntry('Ãšltima actualizaciÃ³n',
+          (ficha['actualizado'] ?? 'Sin dato').toString()),
       MapEntry('Estado actual', maquina.estadoNombre),
-      MapEntry('Inicio estado', '${maquina.estadoFechaInicio ?? '-'} ${maquina.estadoHoraInicio ?? ''}'.trim()),
-      MapEntry('Observaciones estado', maquina.estadoObservaciones ?? 'Sin observaciones'),
-      MapEntry('PrÃ³ximo mantenimiento', maquina.mantenimientoProximo ?? 'Sin mantenimiento prÃ³ximo'),
-      MapEntry('Fecha prÃ³xima', maquina.mantenimientoFechaProxima ?? 'Sin fecha'),
-      MapEntry('DÃ­as restantes', maquina.mantenimientoDiasRestantes == null ? 'Sin dato' : '${maquina.mantenimientoDiasRestantes}'),
+      MapEntry(
+          'Inicio estado',
+          '${maquina.estadoFechaInicio ?? '-'} ${maquina.estadoHoraInicio ?? ''}'
+              .trim()),
+      MapEntry('Observaciones estado',
+          maquina.estadoObservaciones ?? 'Sin observaciones'),
+      MapEntry('PrÃ³ximo mantenimiento',
+          maquina.mantenimientoProximo ?? 'Sin mantenimiento prÃ³ximo'),
+      MapEntry(
+          'Fecha prÃ³xima', maquina.mantenimientoFechaProxima ?? 'Sin fecha'),
+      MapEntry(
+          'DÃ­as restantes',
+          maquina.mantenimientoDiasRestantes == null
+              ? 'Sin dato'
+              : '${maquina.mantenimientoDiasRestantes}'),
       MapEntry('Notas', (ficha['notas'] ?? 'Sin notas').toString()),
     ];
 
@@ -596,14 +691,18 @@ class _MolinosScreenState extends State<MolinosScreen> {
                     Expanded(
                       child: Text(
                         'Ficha tÃ©cnica de ${maquina.nombre}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Table(
-                  columnWidths: const {0: FixedColumnWidth(170), 1: FlexColumnWidth()},
+                  columnWidths: const {
+                    0: FixedColumnWidth(170),
+                    1: FlexColumnWidth()
+                  },
                   border: TableBorder.all(color: Colors.black12),
                   children: rows.map((r) {
                     return TableRow(
@@ -611,7 +710,9 @@ class _MolinosScreenState extends State<MolinosScreen> {
                         Container(
                           color: Colors.grey.shade100,
                           padding: const EdgeInsets.all(9),
-                          child: Text(r.key, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          child: Text(r.key,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
                         ),
                         Padding(
                           padding: const EdgeInsets.all(9),
@@ -634,15 +735,17 @@ class _MolinosScreenState extends State<MolinosScreen> {
     );
   }
 
-
   Widget _personasAsignadasPorTurno(List<MaquinaHistorialMolino> asignaciones) {
     if (asignaciones.isEmpty) {
-      return const Center(child: Text('Sin personas asignadas para esta vista.'));
+      return const Center(
+          child: Text('Sin personas asignadas para esta vista.'));
     }
 
     final Map<String, List<MaquinaHistorialMolino>> grupos = {};
     for (final a in asignaciones) {
-      final turno = (a.turno == null || a.turno!.trim().isEmpty) ? 'SIN TURNO' : a.turno!.trim().toUpperCase();
+      final turno = (a.turno == null || a.turno!.trim().isEmpty)
+          ? 'SIN TURNO'
+          : a.turno!.trim().toUpperCase();
       grupos.putIfAbsent(turno, () => []).add(a);
     }
 
@@ -659,12 +762,14 @@ class _MolinosScreenState extends State<MolinosScreen> {
           child: ExpansionTile(
             initiallyExpanded: true,
             leading: const Icon(Icons.groups),
-            title: Text('$turno (${rows.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+            title: Text('$turno (${rows.length})',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
             children: rows.map((h) {
               return ListTile(
                 dense: true,
                 leading: const Icon(Icons.person_outline),
-                title: Text(h.titulo, style: const TextStyle(fontWeight: FontWeight.w600)),
+                title: Text(h.titulo,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: Text([
                   '${h.fecha} ${h.hora}',
                   if (h.subtitulo?.isNotEmpty == true) h.subtitulo!,
@@ -691,7 +796,8 @@ class _MolinosScreenState extends State<MolinosScreen> {
     }
   }
 
-  Future<void> _cerrarMantenimientoDialog(MaquinaMolinos maquina, MaquinaHistorialMolino bitacora) async {
+  Future<void> _cerrarMantenimientoDialog(
+      MaquinaMolinos maquina, MaquinaHistorialMolino bitacora) async {
     String descripcion = '';
     final confirmar = await showDialog<bool>(
       context: context,
@@ -707,8 +813,12 @@ class _MolinosScreenState extends State<MolinosScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Cerrar mantenimiento')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Cerrar mantenimiento')),
         ],
       ),
     );
@@ -743,26 +853,45 @@ class _MolinosScreenState extends State<MolinosScreen> {
                 _info('Mantenimiento', h.titulo),
                 _info('Fecha inicio', '${h.fecha} ${h.hora}'),
                 _info('Fecha prÃ³xima', h.fechaProxima ?? 'Sin fecha'),
-                _info('DÃ­as / frecuencia', h.dias == null ? 'Sin dÃ­as' : '${h.dias} dÃ­as'),
-                _info('DÃ­as restantes', h.diasRestantes == null ? 'Sin dato' : '${h.diasRestantes}'),
+                _info('DÃ­as / frecuencia',
+                    h.dias == null ? 'Sin dÃ­as' : '${h.dias} dÃ­as'),
+                _info(
+                    'DÃ­as restantes',
+                    h.diasRestantes == null
+                        ? 'Sin dato'
+                        : '${h.diasRestantes}'),
                 _info('Estatus', h.statusManto ?? 'Sin estatus'),
                 _info('Operador', h.operador ?? ''),
                 _info('Supervisor', h.supervisor ?? ''),
                 _info('Usuario', h.usuario ?? ''),
                 const Divider(height: 24),
-                const Text('DescripciÃ³n preventiva', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text(h.descripcionPreven?.isNotEmpty == true ? h.descripcionPreven! : 'Sin descripciÃ³n preventiva'),
+                const Text('DescripciÃ³n preventiva',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(h.descripcionPreven?.isNotEmpty == true
+                    ? h.descripcionPreven!
+                    : 'Sin descripciÃ³n preventiva'),
                 const SizedBox(height: 12),
-                const Text('DescripciÃ³n correctiva', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text(h.descripcionCorrec?.isNotEmpty == true ? h.descripcionCorrec! : 'Sin descripciÃ³n correctiva'),
+                const Text('DescripciÃ³n correctiva',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(h.descripcionCorrec?.isNotEmpty == true
+                    ? h.descripcionCorrec!
+                    : 'Sin descripciÃ³n correctiva'),
                 const Divider(height: 24),
-                _info('Fecha tÃ©rmino', h.fechaTermino == null ? 'Abierto' : '${h.fechaTermino} ${h.horaTermino ?? ''}'),
+                _info(
+                    'Fecha tÃ©rmino',
+                    h.fechaTermino == null
+                        ? 'Abierto'
+                        : '${h.fechaTermino} ${h.horaTermino ?? ''}'),
                 _info('Tiempo muerto', h.tiempoMuerto ?? 'En curso'),
               ],
             ),
           ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar'))],
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar'))
+        ],
       ),
     );
   }
@@ -781,12 +910,14 @@ class _MolinosScreenState extends State<MolinosScreen> {
 
   bool _visiblePorTurno(EmpleadoMolinos e) {
     // Filtro estricto por turno actual configurado en empleados_turnos_rotacion.
-    return (e.turno ?? '').toUpperCase().trim() == _turnoFiltro.toUpperCase().trim();
+    return (e.turno ?? '').toUpperCase().trim() ==
+        _turnoFiltro.toUpperCase().trim();
   }
 
-  bool _esLavador(EmpleadoMolinos e) => (e.puesto ?? '').toUpperCase().contains('LAVADOR');
+  bool _esLavador(EmpleadoMolinos e) =>
+      (e.puesto ?? '').toUpperCase().contains('LAVADOR');
 
-List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
+  List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
     return empleados.where(_visiblePorTurno).toList();
   }
 
@@ -828,16 +959,26 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
                           _info('Puesto', e.puesto ?? 'Sin puesto'),
                           _info('Turno actual', e.turno ?? 'Sin turno'),
                           _info('Turno que sigue', e.resumenTurnoQueSigue),
-                          if (e.horarioTurno.isNotEmpty) _info('Horario', e.horarioTurno),
-                          if (!e.turnoEnHorario) _info('Aviso', 'AÃºn no es su turno'),
-                          if (e.turnoPorConcluir) _info('Alerta', 'Turno casi por concluir'),
-                          _info('MÃ¡quina', e.maquinaNombre ?? 'En espera / afuera'),
-                          if (e.horaEntrada != null) _info('Entrada', e.horaEntrada!),
-                          if (e.horaSalidaComida != null) _info('Salida comida', e.horaSalidaComida!),
-                          if (e.horaRegresoComida != null) _info('Regreso comida', e.horaRegresoComida!),
-                          if (e.horaSalida != null) _info('Salida', e.horaSalida!),
-                          if (e.horaInicioMaquina != null) _info('Desde en mÃ¡quina', e.horaInicioMaquina!),
-                          if (e.horaFinMaquina != null) _info('Hasta en mÃ¡quina', e.horaFinMaquina!),
+                          if (e.horarioTurno.isNotEmpty)
+                            _info('Horario', e.horarioTurno),
+                          if (!e.turnoEnHorario)
+                            _info('Aviso', 'AÃºn no es su turno'),
+                          if (e.turnoPorConcluir)
+                            _info('Alerta', 'Turno casi por concluir'),
+                          _info('MÃ¡quina',
+                              e.maquinaNombre ?? 'En espera / afuera'),
+                          if (e.horaEntrada != null)
+                            _info('Entrada', e.horaEntrada!),
+                          if (e.horaSalidaComida != null)
+                            _info('Salida comida', e.horaSalidaComida!),
+                          if (e.horaRegresoComida != null)
+                            _info('Regreso comida', e.horaRegresoComida!),
+                          if (e.horaSalida != null)
+                            _info('Salida', e.horaSalida!),
+                          if (e.horaInicioMaquina != null)
+                            _info('Desde en mÃ¡quina', e.horaInicioMaquina!),
+                          if (e.horaFinMaquina != null)
+                            _info('Hasta en mÃ¡quina', e.horaFinMaquina!),
                         ],
                       ),
                     ),
@@ -848,7 +989,8 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
                   _alertBox('${e.acotacion}: ${e.acotacionDescripcion ?? ''}'),
                 ],
                 const SizedBox(height: 16),
-                const Text('Responsabilidades', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Responsabilidades',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 6),
                 Text(
                   e.responsabilidades?.isNotEmpty == true
@@ -868,12 +1010,13 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
               },
               child: const Text('Editar empleado / rotaciÃ³n'),
             ),
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar')),
         ],
       ),
     );
   }
-
 
   List<TurnoMolino> _turnosUnicos(List<TurnoMolino> turnos) {
     final Map<int, TurnoMolino> map = {};
@@ -895,9 +1038,10 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
     final service = MolinosService(token);
     final numeroCtrl = TextEditingController(text: e.numeroNomina);
     final nombreCtrl = TextEditingController(text: e.nombre);
-    String puestoSeleccionado = _puestos.contains((e.puesto ?? '').toUpperCase().trim())
-        ? (e.puesto ?? '').toUpperCase().trim()
-        : 'OTRO';
+    String puestoSeleccionado =
+        _puestos.contains((e.puesto ?? '').toUpperCase().trim())
+            ? (e.puesto ?? '').toUpperCase().trim()
+            : 'OTRO';
     final respCtrl = TextEditingController(text: e.responsabilidades ?? '');
     final telefonoCtrl = TextEditingController(text: e.telefono ?? '');
     final direccionCtrl = TextEditingController(text: e.direccion ?? '');
@@ -907,7 +1051,9 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
 
     try {
       turnos = _turnosUnicos(await service.turnos());
-      final actual = turnos.where((t) => t.nombre.toUpperCase() == (e.turno ?? '').toUpperCase()).toList();
+      final actual = turnos
+          .where((t) => t.nombre.toUpperCase() == (e.turno ?? '').toUpperCase())
+          .toList();
       if (actual.isNotEmpty) turnoId = actual.first.id;
       turnoId = _valorDropdownValido(turnoId, turnos);
     } catch (_) {}
@@ -926,41 +1072,66 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextField(controller: numeroCtrl, decoration: const InputDecoration(labelText: 'NÃ³mina')),
-                    TextField(controller: nombreCtrl, decoration: const InputDecoration(labelText: 'Nombre')),
+                    TextField(
+                        controller: numeroCtrl,
+                        decoration:
+                            const InputDecoration(labelText: 'NÃ³mina')),
+                    TextField(
+                        controller: nombreCtrl,
+                        decoration: const InputDecoration(labelText: 'Nombre')),
                     DropdownButtonFormField<String>(
                       value: puestoSeleccionado,
-                      items: _puestos.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-                      onChanged: (value) => setDialogState(() => puestoSeleccionado = value ?? 'OTRO'),
+                      items: _puestos
+                          .map(
+                              (p) => DropdownMenuItem(value: p, child: Text(p)))
+                          .toList(),
+                      onChanged: (value) => setDialogState(
+                          () => puestoSeleccionado = value ?? 'OTRO'),
                       decoration: const InputDecoration(labelText: 'Puesto'),
                     ),
                     TextField(
                       controller: respCtrl,
                       minLines: 2,
                       maxLines: 4,
-                      decoration: const InputDecoration(labelText: 'Responsabilidades'),
+                      decoration:
+                          const InputDecoration(labelText: 'Responsabilidades'),
                     ),
-                    TextField(controller: telefonoCtrl, decoration: const InputDecoration(labelText: 'TelÃ©fono')),
-                    TextField(controller: direccionCtrl, decoration: const InputDecoration(labelText: 'DirecciÃ³n')),
+                    TextField(
+                        controller: telefonoCtrl,
+                        decoration:
+                            const InputDecoration(labelText: 'TelÃ©fono')),
+                    TextField(
+                        controller: direccionCtrl,
+                        decoration:
+                            const InputDecoration(labelText: 'DirecciÃ³n')),
                     DropdownButtonFormField<int>(
                       value: activoSeleccionado,
                       items: const [
                         DropdownMenuItem(value: 1, child: Text('Activo')),
                         DropdownMenuItem(value: 0, child: Text('Inactivo')),
                       ],
-                      onChanged: (value) => setDialogState(() => activoSeleccionado = value ?? 1),
+                      onChanged: (value) =>
+                          setDialogState(() => activoSeleccionado = value ?? 1),
                       decoration: const InputDecoration(labelText: 'Status'),
                     ),
                     const SizedBox(height: 14),
-                    const Text('Turno actual', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text('Turno actual',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     DropdownButtonFormField<int>(
                       value: _valorDropdownValido(turnoId, turnos),
                       items: turnos.map<DropdownMenuItem<int>>((t) {
-                        final horario = [t.horaInicio, t.horaFin].whereType<String>().join(' - ');
-                        return DropdownMenuItem(value: t.id, child: Text('${t.nombre}${horario.isEmpty ? '' : ' ($horario)'}'));
+                        final horario = [t.horaInicio, t.horaFin]
+                            .whereType<String>()
+                            .join(' - ');
+                        return DropdownMenuItem(
+                            value: t.id,
+                            child: Text(
+                                '${t.nombre}${horario.isEmpty ? '' : ' ($horario)'}'));
                       }).toList(),
-                      onChanged: (value) => setDialogState(() => turnoId = value),
-                      decoration: const InputDecoration(labelText: 'Selecciona turno'),
+                      onChanged: (value) =>
+                          setDialogState(() => turnoId = value),
+                      decoration:
+                          const InputDecoration(labelText: 'Selecciona turno'),
                     ),
                     const SizedBox(height: 10),
                     OutlinedButton.icon(
@@ -973,7 +1144,9 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar')),
               ElevatedButton(
                 onPressed: () async {
                   try {
@@ -996,7 +1169,8 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
                           RotacionTurnoMolino(
                             semanaOrden: _semanaDelAnio(_fecha),
                             turnoId: turnoId!,
-                            fechaInicio: DateFormat('yyyy-MM-dd').format(_fecha),
+                            fechaInicio:
+                                DateFormat('yyyy-MM-dd').format(_fecha),
                           ),
                         ],
                       );
@@ -1023,7 +1197,8 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
     direccionCtrl.dispose();
   }
 
-  Future<void> _rotacionSemanalDialog(EmpleadoMolinos e, List<TurnoMolino> turnosIniciales) async {
+  Future<void> _rotacionSemanalDialog(
+      EmpleadoMolinos e, List<TurnoMolino> turnosIniciales) async {
     final token = context.read<AuthService>().token!;
     final service = MolinosService(token);
     var turnos = _turnosUnicos(turnosIniciales);
@@ -1031,7 +1206,10 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
     var rotacion = await service.rotacionEmpleado(e.id);
     if (rotacion.isEmpty && turnos.isNotEmpty) {
       rotacion = [
-        RotacionTurnoMolino(semanaOrden: _semanaDelAnio(_fecha), turnoId: turnos.first.id, fechaInicio: DateFormat('yyyy-MM-dd').format(_fecha)),
+        RotacionTurnoMolino(
+            semanaOrden: _semanaDelAnio(_fecha),
+            turnoId: turnos.first.id,
+            fechaInicio: DateFormat('yyyy-MM-dd').format(_fecha)),
       ];
     }
 
@@ -1050,22 +1228,32 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
                   children: [
                     const Align(
                       alignment: Alignment.centerLeft,
-                      child: Text('Define desde la semana actual del aÃ±o en adelante y el turno que tendrÃ¡ el empleado.', style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                          'Define desde la semana actual del aÃ±o en adelante y el turno que tendrÃ¡ el empleado.',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
                     const SizedBox(height: 10),
                     ...rotacion.asMap().entries.map((entry) {
                       final i = entry.key;
                       final r = entry.value;
                       final semanaActual = _semanaDelAnio(_fecha);
-                      final maxSemana = math.max(53, rotacion.isEmpty ? semanaActual : rotacion.map((x) => x.semanaOrden).reduce(math.max));
-                      final semanaValue = r.semanaOrden <= 0 ? semanaActual : r.semanaOrden;
+                      final maxSemana = math.max(
+                          53,
+                          rotacion.isEmpty
+                              ? semanaActual
+                              : rotacion
+                                  .map((x) => x.semanaOrden)
+                                  .reduce(math.max));
+                      final semanaValue =
+                          r.semanaOrden <= 0 ? semanaActual : r.semanaOrden;
                       final minSemana = math.min(semanaActual, semanaValue);
                       final semanasDisponibles = List<int>.generate(
                         (maxSemana - minSemana) + 1,
                         (idx) => minSemana + idx,
                       ).toSet().toList()
                         ..sort();
-                      final turnoValue = _valorDropdownValido(r.turnoId, turnos);
+                      final turnoValue =
+                          _valorDropdownValido(r.turnoId, turnos);
                       return Card(
                         child: Padding(
                           padding: const EdgeInsets.all(10),
@@ -1078,16 +1266,20 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
                                   value: null,
                                   hint: Text('Semana del aÃ±o $semanaValue'),
                                   items: semanasDisponibles
-                                      .map((w) => DropdownMenuItem<int>(value: w, child: Text('Semana del aÃ±o $w')))
+                                      .map((w) => DropdownMenuItem<int>(
+                                          value: w,
+                                          child: Text('Semana del aÃ±o $w')))
                                       .toList(),
                                   onChanged: (value) {
                                     if (value == null) return;
-                                    setDialogState(() => rotacion[i] = RotacionTurnoMolino(
-                                      semanaOrden: value,
-                                      turnoId: r.turnoId,
-                                      fechaInicio: _fechaSemanaInicio(value),
-                                      fechaFin: _fechaSemanaFin(value),
-                                    ));
+                                    setDialogState(
+                                        () => rotacion[i] = RotacionTurnoMolino(
+                                              semanaOrden: value,
+                                              turnoId: r.turnoId,
+                                              fechaInicio:
+                                                  _fechaSemanaInicio(value),
+                                              fechaFin: _fechaSemanaFin(value),
+                                            ));
                                   },
                                 ),
                               ),
@@ -1095,22 +1287,36 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
                               Expanded(
                                 child: DropdownButtonFormField<int>(
                                   value: turnoValue,
-                                  items: turnos.map<DropdownMenuItem<int>>((t) => DropdownMenuItem<int>(value: t.id, child: Text('${t.nombre} ${t.horaInicio ?? ''}-${t.horaFin ?? ''}'))).toList(),
+                                  items: turnos
+                                      .map<
+                                          DropdownMenuItem<
+                                              int>>((t) => DropdownMenuItem<int>(
+                                          value: t.id,
+                                          child: Text(
+                                              '${t.nombre} ${t.horaInicio ?? ''}-${t.horaFin ?? ''}')))
+                                      .toList(),
                                   onChanged: (value) {
                                     if (value == null) return;
-                                    setDialogState(() => rotacion[i] = RotacionTurnoMolino(
-                                      semanaOrden: r.semanaOrden,
-                                      turnoId: value,
-                                      fechaInicio: r.fechaInicio ?? DateFormat('yyyy-MM-dd').format(_fecha),
-                                      fechaFin: r.fechaFin,
-                                    ));
+                                    setDialogState(
+                                        () => rotacion[i] = RotacionTurnoMolino(
+                                              semanaOrden: r.semanaOrden,
+                                              turnoId: value,
+                                              fechaInicio: r.fechaInicio ??
+                                                  DateFormat('yyyy-MM-dd')
+                                                      .format(_fecha),
+                                              fechaFin: r.fechaFin,
+                                            ));
                                   },
-                                  decoration: const InputDecoration(labelText: 'Turno'),
+                                  decoration:
+                                      const InputDecoration(labelText: 'Turno'),
                                 ),
                               ),
                               IconButton(
                                 tooltip: 'Quitar semana',
-                                onPressed: rotacion.length == 1 ? null : () => setDialogState(() => rotacion.removeAt(i)),
+                                onPressed: rotacion.length == 1
+                                    ? null
+                                    : () => setDialogState(
+                                        () => rotacion.removeAt(i)),
                                 icon: const Icon(Icons.delete_outline),
                               ),
                             ],
@@ -1121,15 +1327,22 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: TextButton.icon(
-                        onPressed: turnos.isEmpty ? null : () => setDialogState(() {
-                          final nextWeek = rotacion.isEmpty ? _semanaDelAnio(_fecha) : (rotacion.map((r) => r.semanaOrden).reduce(math.max) + 1);
-                          rotacion.add(RotacionTurnoMolino(
-                            semanaOrden: nextWeek,
-                            turnoId: turnos.first.id,
-                            fechaInicio: _fechaSemanaInicio(nextWeek),
-                            fechaFin: _fechaSemanaFin(nextWeek),
-                          ));
-                        }),
+                        onPressed: turnos.isEmpty
+                            ? null
+                            : () => setDialogState(() {
+                                  final nextWeek = rotacion.isEmpty
+                                      ? _semanaDelAnio(_fecha)
+                                      : (rotacion
+                                              .map((r) => r.semanaOrden)
+                                              .reduce(math.max) +
+                                          1);
+                                  rotacion.add(RotacionTurnoMolino(
+                                    semanaOrden: nextWeek,
+                                    turnoId: turnos.first.id,
+                                    fechaInicio: _fechaSemanaInicio(nextWeek),
+                                    fechaFin: _fechaSemanaFin(nextWeek),
+                                  ));
+                                }),
                         icon: const Icon(Icons.add),
                         label: const Text('Agregar semana'),
                       ),
@@ -1139,11 +1352,14 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar')),
               ElevatedButton(
                 onPressed: () async {
                   try {
-                    await service.guardarRotacionEmpleado(empleadoId: e.id, rotacion: rotacion);
+                    await service.guardarRotacionEmpleado(
+                        empleadoId: e.id, rotacion: rotacion);
                     if (mounted) Navigator.pop(context);
                     _ok('RotaciÃ³n semanal actualizada');
                   } catch (err) {
@@ -1166,7 +1382,9 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
         text: TextSpan(
           style: const TextStyle(color: Colors.black87, fontSize: 14),
           children: [
-            TextSpan(text: '$label: ', style: const TextStyle(fontWeight: FontWeight.bold)),
+            TextSpan(
+                text: '$label: ',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
             TextSpan(text: value),
           ],
         ),
@@ -1183,14 +1401,21 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.red.shade200),
       ),
-      child: Text(text, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+      child: Text(text,
+          style:
+              const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
     );
   }
 
   int _semanaDelAnio(DateTime date) {
-    final thursday = date.add(Duration(days: 4 - (date.weekday == 7 ? 7 : date.weekday)));
+    final thursday =
+        date.add(Duration(days: 4 - (date.weekday == 7 ? 7 : date.weekday)));
     final firstThursday = DateTime(thursday.year, 1, 4);
-    final week = 1 + ((thursday.difference(firstThursday).inDays + (firstThursday.weekday == 7 ? 7 : firstThursday.weekday) - 1) ~/ 7);
+    final week = 1 +
+        ((thursday.difference(firstThursday).inDays +
+                (firstThursday.weekday == 7 ? 7 : firstThursday.weekday) -
+                1) ~/
+            7);
     return week.clamp(1, 53);
   }
 
@@ -1213,7 +1438,7 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
     return DateFormat('yyyy-MM-dd').format(_finSemanaIso(semana));
   }
 
-@override
+  @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
 
@@ -1221,7 +1446,8 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
       builder: (context, constraints) {
         final ancho = constraints.maxWidth;
         final pantallaChica = ancho < 760;
-        final mostrarPanelEmpleados = !_vistaTabla && _mostrarListaEmpleados && !pantallaChica;
+        final mostrarPanelEmpleados =
+            !_vistaTabla && _mostrarListaEmpleados && !pantallaChica;
         final panelWidth = ancho < 980 ? 300.0 : 350.0;
         final usarCompacto = _vistaTabla || pantallaChica;
 
@@ -1233,7 +1459,9 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : _error != null
-                      ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+                      ? Center(
+                          child: Text(_error!,
+                              style: const TextStyle(color: Colors.red)))
                       : Column(
                           children: [
                             _supervisoresBar(),
@@ -1246,7 +1474,10 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
                                   : Row(
                                       children: [
                                         if (mostrarPanelEmpleados) ...[
-                                          SizedBox(width: panelWidth, child: _panelEmpleados(auth.canEdit)),
+                                          SizedBox(
+                                              width: panelWidth,
+                                              child: _panelEmpleados(
+                                                  auth.canEdit)),
                                           const VerticalDivider(width: 1),
                                         ] else if (!_vistaTabla) ...[
                                           Container(
@@ -1254,11 +1485,15 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
                                             color: Colors.grey.shade100,
                                             child: Center(
                                               child: IconButton.filledTonal(
-                                                tooltip: 'Mostrar lista de empleados',
+                                                tooltip:
+                                                    'Mostrar lista de empleados',
                                                 onPressed: () {
-                                                  setState(() => _mostrarListaEmpleados = true);
+                                                  setState(() =>
+                                                      _mostrarListaEmpleados =
+                                                          true);
                                                 },
-                                                icon: const Icon(Icons.keyboard_double_arrow_right),
+                                                icon: const Icon(Icons
+                                                    .keyboard_double_arrow_right),
                                               ),
                                             ),
                                           ),
@@ -1346,12 +1581,17 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
               ),
               if (!_vistaTabla)
                 IconButton.filledTonal(
-                  tooltip: _mostrarListaEmpleados ? 'Ocultar lista de empleados' : 'Mostrar lista de empleados',
+                  tooltip: _mostrarListaEmpleados
+                      ? 'Ocultar lista de empleados'
+                      : 'Mostrar lista de empleados',
                   visualDensity: VisualDensity.compact,
                   onPressed: () {
-                    setState(() => _mostrarListaEmpleados = !_mostrarListaEmpleados);
+                    setState(
+                        () => _mostrarListaEmpleados = !_mostrarListaEmpleados);
                   },
-                  icon: Icon(_mostrarListaEmpleados ? Icons.visibility_off : Icons.visibility),
+                  icon: Icon(_mostrarListaEmpleados
+                      ? Icons.visibility_off
+                      : Icons.visibility),
                 ),
               IconButton.filledTonal(
                 tooltip: 'Actualizar',
@@ -1363,7 +1603,10 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
                 FilledButton.icon(
                   onPressed: _syncing ? null : _sincronizarTurnos,
                   icon: _syncing
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.sync),
                   label: Text(pantallaChica ? 'Sync' : 'Sincronizar turnos'),
                 ),
@@ -1392,7 +1635,8 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
                           'Molinos',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold),
                         ),
                         fechaSelector(),
                       ],
@@ -1412,7 +1656,8 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
                         'Molinos',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 24, fontWeight: FontWeight.bold),
                       ),
                     ),
                     fechaSelector(),
@@ -1446,7 +1691,8 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
 
   String _relojJornada(String turno) {
     final rango = _rangoTurno(turno);
-    if (rango == null) return 'Selecciona un turno para ver el reloj de jornada';
+    if (rango == null)
+      return 'Selecciona un turno para ver el reloj de jornada';
     final now = TimeOfDay.now();
     final actual = now.hour * 60 + now.minute;
     final inicio = rango.$1;
@@ -1456,7 +1702,8 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
     if (inicio < fin) {
       transcurrido = (actual - inicio).clamp(0, duracion);
     } else {
-      transcurrido = actual >= inicio ? actual - inicio : (1440 - inicio) + actual;
+      transcurrido =
+          actual >= inicio ? actual - inicio : (1440 - inicio) + actual;
       transcurrido = transcurrido.clamp(0, duracion);
     }
     final restante = (duracion - transcurrido).clamp(0, duracion);
@@ -1521,7 +1768,8 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
         return Container(
           width: double.infinity,
           color: Colors.white,
-          padding: EdgeInsets.fromLTRB(12, compacto ? 6 : 10, 12, compacto ? 6 : 10),
+          padding:
+              EdgeInsets.fromLTRB(12, compacto ? 6 : 10, 12, compacto ? 6 : 10),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1537,7 +1785,8 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
                   ),
                   if (compacto && supervisores.isNotEmpty)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: Colors.indigo.shade50,
                         borderRadius: BorderRadius.circular(20),
@@ -1560,7 +1809,9 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
                   'Sin encargados o supervisores para este turno.',
                   maxLines: compacto ? 1 : 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.grey.shade700, fontSize: compacto ? 11 : 13),
+                  style: TextStyle(
+                      color: Colors.grey.shade700,
+                      fontSize: compacto ? 11 : 13),
                 )
               else
                 SizedBox(
@@ -1568,7 +1819,8 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: supervisores.length,
-                    separatorBuilder: (_, __) => SizedBox(width: compacto ? 6 : 8),
+                    separatorBuilder: (_, __) =>
+                        SizedBox(width: compacto ? 6 : 8),
                     itemBuilder: (_, index) {
                       final e = supervisores[index];
                       return SizedBox(
@@ -1606,7 +1858,8 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
       onAcceptWithDetails: (details) => _quitarDeMaquina(details.data),
       builder: (context, candidate, rejected) {
         return Container(
-          color: candidate.isNotEmpty ? Colors.blue.shade50 : Colors.grey.shade100,
+          color:
+              candidate.isNotEmpty ? Colors.blue.shade50 : Colors.grey.shade100,
           padding: const EdgeInsets.all(12),
           child: ListView(
             children: [
@@ -1633,17 +1886,21 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
               else
                 ...empleadosDelTurno.map((e) => _empleadoDraggable(e, canEdit)),
               const Divider(height: 30),
-              _sectionTitle('Lavadores afuera de molinos', Icons.cleaning_services),
+              _sectionTitle(
+                  'Lavadores afuera de molinos', Icons.cleaning_services),
               const SizedBox(height: 10),
-              if (lavadores.isEmpty) const Text('No hay lavadores en espera para este turno.'),
+              if (lavadores.isEmpty)
+                const Text('No hay lavadores en espera para este turno.'),
               ...lavadores.map((e) => _empleadoDraggable(e, canEdit)),
               const Divider(height: 30),
               _sectionTitle('Empleados en espera', Icons.hourglass_empty),
               const SizedBox(height: 10),
-              if (otrosEspera.isEmpty) const Text('No hay empleados en espera para este turno.'),
+              if (otrosEspera.isEmpty)
+                const Text('No hay empleados en espera para este turno.'),
               ...otrosEspera.map((e) => _empleadoDraggable(e, canEdit)),
               const Divider(height: 30),
-              _sectionTitle('Alertas / Acotaciones', Icons.warning_amber_rounded),
+              _sectionTitle(
+                  'Alertas / Acotaciones', Icons.warning_amber_rounded),
               if (alertas.isEmpty) const Text('Sin alertas.'),
               ...alertas.map((e) => _alertTile(e)),
               const Divider(height: 30),
@@ -1653,7 +1910,8 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
               const SizedBox(height: 30),
               Text(
                 'Arrastra aquÃ­ a un empleado para dejarlo afuera/en espera.',
-                style: TextStyle(color: Colors.grey.shade700, fontStyle: FontStyle.italic),
+                style: TextStyle(
+                    color: Colors.grey.shade700, fontStyle: FontStyle.italic),
               ),
             ],
           ),
@@ -1672,7 +1930,8 @@ List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: compacto ? 14 : 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+                fontSize: compacto ? 14 : 18, fontWeight: FontWeight.bold),
           ),
         ),
       ],
@@ -1796,13 +2055,18 @@ class _EmpleadoChip extends StatelessWidget {
   }
 
   int _semanaDelAnio(DateTime date) {
-    final thursday = date.add(Duration(days: 4 - (date.weekday == 7 ? 7 : date.weekday)));
+    final thursday =
+        date.add(Duration(days: 4 - (date.weekday == 7 ? 7 : date.weekday)));
     final firstThursday = DateTime(thursday.year, 1, 4);
-    final week = 1 + ((thursday.difference(firstThursday).inDays + (firstThursday.weekday == 7 ? 7 : firstThursday.weekday) - 1) ~/ 7);
+    final week = 1 +
+        ((thursday.difference(firstThursday).inDays +
+                (firstThursday.weekday == 7 ? 7 : firstThursday.weekday) -
+                1) ~/
+            7);
     return week.clamp(1, 53);
   }
 
-@override
+  @override
   Widget build(BuildContext context) {
     final turnoColor = _colorFromName(empleado.turnoColor);
 
@@ -1819,16 +2083,21 @@ class _EmpleadoChip extends StatelessWidget {
           decoration: BoxDecoration(
             color: destacado ? Colors.indigo.shade50 : Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: destacado ? Colors.indigo.shade200 : Colors.grey.shade300),
+            border: Border.all(
+                color:
+                    destacado ? Colors.indigo.shade200 : Colors.grey.shade300),
           ),
           child: Row(
             children: [
               CircleAvatar(
                 radius: 14,
-                backgroundImage: empleado.foto != null && empleado.foto!.isNotEmpty
-                    ? NetworkImage(ApiService.fileUrl(empleado.foto!))
+                backgroundImage:
+                    empleado.foto != null && empleado.foto!.isNotEmpty
+                        ? NetworkImage(ApiService.fileUrl(empleado.foto!))
+                        : null,
+                child: empleado.foto == null || empleado.foto!.isEmpty
+                    ? const Icon(Icons.person, size: 15)
                     : null,
-                child: empleado.foto == null || empleado.foto!.isEmpty ? const Icon(Icons.person, size: 15) : null,
               ),
               const SizedBox(width: 7),
               Expanded(
@@ -1836,10 +2105,13 @@ class _EmpleadoChip extends StatelessWidget {
                   '${empleado.nombre} Â· $subtitulo',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 11),
                 ),
               ),
-              if (empleado.acotacion != null) const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 15),
+              if (empleado.acotacion != null)
+                const Icon(Icons.warning_amber_rounded,
+                    color: Colors.red, size: 15),
             ],
           ),
         ),
@@ -1854,17 +2126,24 @@ class _EmpleadoChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: destacado ? Colors.indigo.shade50 : Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: destacado ? Colors.indigo.shade200 : Colors.grey.shade300),
-          boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 8, offset: Offset(0, 3))],
+          border: Border.all(
+              color: destacado ? Colors.indigo.shade200 : Colors.grey.shade300),
+          boxShadow: const [
+            BoxShadow(
+                color: Color(0x14000000), blurRadius: 8, offset: Offset(0, 3))
+          ],
         ),
         child: Row(
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundImage: empleado.foto != null && empleado.foto!.isNotEmpty
-                  ? NetworkImage(ApiService.fileUrl(empleado.foto!))
+              backgroundImage:
+                  empleado.foto != null && empleado.foto!.isNotEmpty
+                      ? NetworkImage(ApiService.fileUrl(empleado.foto!))
+                      : null,
+              child: empleado.foto == null || empleado.foto!.isEmpty
+                  ? const Icon(Icons.person)
                   : null,
-              child: empleado.foto == null || empleado.foto!.isEmpty ? const Icon(Icons.person) : null,
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -1875,7 +2154,9 @@ class _EmpleadoChip extends StatelessWidget {
                     [
                       empleado.nombre,
                       empleado.puesto ?? 'Sin puesto',
-                      empleado.maquinaNombre == null ? 'En espera / afuera' : 'MÃ¡quina: ${empleado.maquinaNombre}',
+                      empleado.maquinaNombre == null
+                          ? 'En espera / afuera'
+                          : 'MÃ¡quina: ${empleado.maquinaNombre}',
                     ].join(' Â· '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1902,21 +2183,24 @@ class _EmpleadoChip extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: destacado ? 10 : 11,
-                      color: empleado.rolCompleto ? Colors.green.shade700 : Colors.orange.shade800,
+                      color: empleado.rolCompleto
+                          ? Colors.green.shade700
+                          : Colors.orange.shade800,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
               ),
             ),
-            if (empleado.acotacion != null) const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
+            if (empleado.acotacion != null)
+              const Icon(Icons.warning_amber_rounded,
+                  color: Colors.red, size: 20),
           ],
         ),
       ),
     );
   }
 }
-
 
 class _EstadoAnimadoIcon extends StatefulWidget {
   final String estado;
@@ -1928,13 +2212,16 @@ class _EstadoAnimadoIcon extends StatefulWidget {
   State<_EstadoAnimadoIcon> createState() => _EstadoAnimadoIconState();
 }
 
-class _EstadoAnimadoIconState extends State<_EstadoAnimadoIcon> with SingleTickerProviderStateMixin {
+class _EstadoAnimadoIconState extends State<_EstadoAnimadoIcon>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat();
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1100))
+      ..repeat();
   }
 
   @override
@@ -1959,13 +2246,18 @@ class _EstadoAnimadoIconState extends State<_EstadoAnimadoIcon> with SingleTicke
   }
 
   int _semanaDelAnio(DateTime date) {
-    final thursday = date.add(Duration(days: 4 - (date.weekday == 7 ? 7 : date.weekday)));
+    final thursday =
+        date.add(Duration(days: 4 - (date.weekday == 7 ? 7 : date.weekday)));
     final firstThursday = DateTime(thursday.year, 1, 4);
-    final week = 1 + ((thursday.difference(firstThursday).inDays + (firstThursday.weekday == 7 ? 7 : firstThursday.weekday) - 1) ~/ 7);
+    final week = 1 +
+        ((thursday.difference(firstThursday).inDays +
+                (firstThursday.weekday == 7 ? 7 : firstThursday.weekday) -
+                1) ~/
+            7);
     return week.clamp(1, 53);
   }
 
-@override
+  @override
   Widget build(BuildContext context) {
     final estado = widget.estado.toLowerCase();
     return AnimatedBuilder(
@@ -1976,18 +2268,21 @@ class _EstadoAnimadoIconState extends State<_EstadoAnimadoIcon> with SingleTicke
         if (estado == 'trabajando') {
           icon = Transform.rotate(angle: t * 2 * math.pi, child: icon);
         } else if (estado == 'mantenimiento') {
-          icon = Opacity(opacity: .35 + (.65 * (math.sin(t * 2 * math.pi).abs())), child: icon);
+          icon = Opacity(
+              opacity: .35 + (.65 * (math.sin(t * 2 * math.pi).abs())),
+              child: icon);
         } else if (estado == 'limpieza') {
-          icon = Transform.translate(offset: Offset(math.sin(t * 2 * math.pi) * 4, 0), child: icon);
+          icon = Transform.translate(
+              offset: Offset(math.sin(t * 2 * math.pi) * 4, 0), child: icon);
         } else if (estado == 'paro') {
-          icon = Transform.scale(scale: 1 + (.08 * math.sin(t * 2 * math.pi).abs()), child: icon);
+          icon = Transform.scale(
+              scale: 1 + (.08 * math.sin(t * 2 * math.pi).abs()), child: icon);
         }
         return Tooltip(message: estado.toUpperCase(), child: icon);
       },
     );
   }
 }
-
 
 class _MaquinaMolinoCard extends StatelessWidget {
   final MaquinaMolinos maquina;
@@ -2046,7 +2341,6 @@ class _MaquinaMolinoCard extends StatelessWidget {
     }
   }
 
-
   Color _colorSemaforo(String? semaforo) {
     switch ((semaforo ?? '').toLowerCase()) {
       case 'rojo':
@@ -2075,23 +2369,34 @@ class _MaquinaMolinoCard extends StatelessWidget {
       onPressed: canEdit ? () => onEstado(estado) : null,
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        side: BorderSide(color: selected ? color : Colors.grey.shade300, width: selected ? 2 : 1),
+        side: BorderSide(
+            color: selected ? color : Colors.grey.shade300,
+            width: selected ? 2 : 1),
         backgroundColor: selected ? color.withOpacity(.10) : Colors.white,
         visualDensity: VisualDensity.compact,
       ),
-      child: Text(_estadoLabel(estado), style: TextStyle(fontSize: 11, color: selected ? color : Colors.black87, fontWeight: FontWeight.bold)),
+      child: Text(_estadoLabel(estado),
+          style: TextStyle(
+              fontSize: 11,
+              color: selected ? color : Colors.black87,
+              fontWeight: FontWeight.bold)),
     );
   }
 
   int _semanaDelAnio(DateTime date) {
-    final thursday = date.add(Duration(days: 4 - (date.weekday == 7 ? 7 : date.weekday)));
+    final thursday =
+        date.add(Duration(days: 4 - (date.weekday == 7 ? 7 : date.weekday)));
     final firstThursday = DateTime(thursday.year, 1, 4);
-    final week = 1 + ((thursday.difference(firstThursday).inDays + (firstThursday.weekday == 7 ? 7 : firstThursday.weekday) - 1) ~/ 7);
+    final week = 1 +
+        ((thursday.difference(firstThursday).inDays +
+                (firstThursday.weekday == 7 ? 7 : firstThursday.weekday) -
+                1) ~/
+            7);
     return week.clamp(1, 53);
   }
 
-
-  Widget _empleadoEnMaquina(EmpleadoMolinos e, ValueChanged<EmpleadoMolinos> onTap) {
+  Widget _empleadoEnMaquina(
+      EmpleadoMolinos e, ValueChanged<EmpleadoMolinos> onTap) {
     final noCheco = !e.presente;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2114,7 +2419,10 @@ class _MaquinaMolinoCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'No estÃ¡ presente / no checÃ³ entrada',
-                    style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12),
+                    style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12),
                   ),
                 ),
               ],
@@ -2124,8 +2432,8 @@ class _MaquinaMolinoCard extends StatelessWidget {
     );
   }
 
-
-  Widget _empleadoEnMaquinaCompacto(EmpleadoMolinos e, ValueChanged<EmpleadoMolinos> onTap) {
+  Widget _empleadoEnMaquinaCompacto(
+      EmpleadoMolinos e, ValueChanged<EmpleadoMolinos> onTap) {
     final noCheco = !e.presente;
 
     return InkWell(
@@ -2137,7 +2445,8 @@ class _MaquinaMolinoCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: noCheco ? Colors.red.shade50 : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: noCheco ? Colors.red.shade200 : Colors.grey.shade300),
+          border: Border.all(
+              color: noCheco ? Colors.red.shade200 : Colors.grey.shade300),
         ),
         child: Row(
           children: [
@@ -2167,7 +2476,8 @@ class _MaquinaMolinoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _estadoColor(maquina.estadoColor.isNotEmpty ? maquina.estadoColor : maquina.estado);
+    final color = _estadoColor(
+        maquina.estadoColor.isNotEmpty ? maquina.estadoColor : maquina.estado);
 
     final cardWidth = ancho ?? (compacto ? 240.0 : 340.0);
     final minHeight = compacto ? 170.0 : 270.0;
@@ -2187,7 +2497,12 @@ class _MaquinaMolinoCard extends StatelessWidget {
             color: candidate.isNotEmpty ? color.withOpacity(.08) : Colors.white,
             borderRadius: BorderRadius.circular(compacto ? 14 : 18),
             border: Border.all(color: color, width: compacto ? 2 : 3),
-            boxShadow: const [BoxShadow(color: Color(0x15000000), blurRadius: 12, offset: Offset(0, 5))],
+            boxShadow: const [
+              BoxShadow(
+                  color: Color(0x15000000),
+                  blurRadius: 12,
+                  offset: Offset(0, 5))
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2199,7 +2514,8 @@ class _MaquinaMolinoCard extends StatelessWidget {
                       maquina.nombre,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: titleSize, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          fontSize: titleSize, fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -2211,7 +2527,8 @@ class _MaquinaMolinoCard extends StatelessWidget {
                       icon: const Icon(Icons.history, size: 16),
                       label: const Text('Historial'),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 6),
                         visualDensity: VisualDensity.compact,
                       ),
                     ),
@@ -2240,13 +2557,16 @@ class _MaquinaMolinoCard extends StatelessWidget {
               if (!compacto && maquina.descripcion?.isNotEmpty == true)
                 Padding(
                   padding: const EdgeInsets.only(top: 8, bottom: 8),
-                  child: Text(maquina.descripcion!, style: TextStyle(color: Colors.grey.shade700)),
+                  child: Text(maquina.descripcion!,
+                      style: TextStyle(color: Colors.grey.shade700)),
                 ),
               Divider(height: compacto ? 12 : 18),
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.all(compacto ? 7 : 10),
-                decoration: BoxDecoration(color: color.withOpacity(.12), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(
+                    color: color.withOpacity(.12),
+                    borderRadius: BorderRadius.circular(12)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -2261,14 +2581,20 @@ class _MaquinaMolinoCard extends StatelessWidget {
                               : '${_estadoLabel(maquina.estado)} desde ${maquina.estadoHoraInicio ?? '--:--'}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: compacto ? 11 : 14),
+                          style: TextStyle(
+                              color: color,
+                              fontWeight: FontWeight.bold,
+                              fontSize: compacto ? 11 : 14),
                         ),
                         const Icon(Icons.timer_outlined, size: 16),
                         StreamBuilder<int>(
-                          stream: Stream<int>.periodic(const Duration(seconds: 1), (i) => i),
+                          stream: Stream<int>.periodic(
+                              const Duration(seconds: 1), (i) => i),
                           builder: (_, __) => Text(
                             _duracionEstado(maquina.estadoInicioDateTime),
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: compacto ? 11 : 14),
+                            style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: compacto ? 11 : 14),
                           ),
                         ),
                       ],
@@ -2276,7 +2602,8 @@ class _MaquinaMolinoCard extends StatelessWidget {
                     if (!compacto && maquina.estadoObservaciones != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
-                        child: Text(maquina.estadoObservaciones!, style: const TextStyle(fontSize: 12)),
+                        child: Text(maquina.estadoObservaciones!,
+                            style: const TextStyle(fontSize: 12)),
                       ),
                   ],
                 ),
@@ -2287,14 +2614,19 @@ class _MaquinaMolinoCard extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: _colorSemaforo(maquina.mantenimientoSemaforo).withOpacity(.10),
+                    color: _colorSemaforo(maquina.mantenimientoSemaforo)
+                        .withOpacity(.10),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _colorSemaforo(maquina.mantenimientoSemaforo), width: maquina.mantenimientoAlerta ? 2 : 1),
+                    border: Border.all(
+                        color: _colorSemaforo(maquina.mantenimientoSemaforo),
+                        width: maquina.mantenimientoAlerta ? 2 : 1),
                   ),
                   child: Row(
                     children: [
                       Icon(
-                        maquina.mantenimientoAlerta ? Icons.notifications_active : Icons.notifications_none,
+                        maquina.mantenimientoAlerta
+                            ? Icons.notifications_active
+                            : Icons.notifications_none,
                         color: _colorSemaforo(maquina.mantenimientoSemaforo),
                         size: 18,
                       ),
@@ -2306,7 +2638,10 @@ class _MaquinaMolinoCard extends StatelessWidget {
                           '${maquina.mantenimientoProximo == null ? '' : ' Â· ${maquina.mantenimientoProximo}'}',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontWeight: FontWeight.bold, color: _colorSemaforo(maquina.mantenimientoSemaforo)),
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: _colorSemaforo(
+                                  maquina.mantenimientoSemaforo)),
                         ),
                       ),
                     ],
@@ -2315,19 +2650,28 @@ class _MaquinaMolinoCard extends StatelessWidget {
               ],
               SizedBox(height: compacto ? 8 : 12),
               Text(
-                compacto ? 'Emp. (${empleados.length})' : 'Lista de empleados (${empleados.length})',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: compacto ? 12 : 14),
+                compacto
+                    ? 'Emp. (${empleados.length})'
+                    : 'Lista de empleados (${empleados.length})',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: compacto ? 12 : 14),
               ),
               SizedBox(height: compacto ? 5 : 8),
               if (empleados.isEmpty)
                 Container(
                   width: double.infinity,
                   padding: EdgeInsets.all(compacto ? 8 : 16),
-                  decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
+                  decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12)),
                   child: Text(
-                    compacto ? 'VacÃ­o' : 'Arrastra empleados aquÃ­. Si es LAVADOR, se queda en el molino y cambia a Limpieza.',
+                    compacto
+                        ? 'VacÃ­o'
+                        : 'Arrastra empleados aquÃ­. Si es LAVADOR, se queda en el molino y cambia a Limpieza.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade700, fontSize: compacto ? 11 : 13),
+                    style: TextStyle(
+                        color: Colors.grey.shade700,
+                        fontSize: compacto ? 11 : 13),
                   ),
                 )
               else
@@ -2343,9 +2687,11 @@ class _MaquinaMolinoCard extends StatelessWidget {
                             data: e,
                             feedback: Material(
                               color: Colors.transparent,
-                              child: _EmpleadoChip(empleado: e, onTap: () {}, compacto: true),
+                              child: _EmpleadoChip(
+                                  empleado: e, onTap: () {}, compacto: true),
                             ),
-                            childWhenDragging: Opacity(opacity: .35, child: child),
+                            childWhenDragging:
+                                Opacity(opacity: .35, child: child),
                             child: child,
                           )
                         : child,
@@ -2358,4 +2704,3 @@ class _MaquinaMolinoCard extends StatelessWidget {
     );
   }
 }
-

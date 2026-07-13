@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-
   static const String serverUrl = 'http://10.1.1.17:8000';
 
   //static const String serverUrl = 'http://127.0.0.1:8000';
@@ -15,14 +14,17 @@ class ApiService {
       };
 
   static dynamic decode(http.Response res) {
-    final body = res.body.isEmpty ? null : jsonDecode(utf8.decode(res.bodyBytes));
+    final body =
+        res.body.isEmpty ? null : jsonDecode(utf8.decode(res.bodyBytes));
 
     if (res.statusCode >= 200 && res.statusCode < 300) {
       return body;
     }
 
     throw Exception(
-      body is Map ? (body['detail'] ?? body.toString()) : 'Error ${res.statusCode}',
+      body is Map
+          ? (body['detail'] ?? body.toString())
+          : 'Error ${res.statusCode}',
     );
   }
 

@@ -21,11 +21,16 @@ class MaquinaCard extends StatelessWidget {
 
   Color _estadoColor(String estado) {
     switch (estado) {
-      case 'trabajando': return Colors.green;
-      case 'paro': return Colors.red;
-      case 'mantenimiento': return Colors.orange;
-      case 'limpieza': return Colors.blue;
-      default: return Colors.grey;
+      case 'trabajando':
+        return Colors.green;
+      case 'paro':
+        return Colors.red;
+      case 'mantenimiento':
+        return Colors.orange;
+      case 'limpieza':
+        return Colors.blue;
+      default:
+        return Colors.grey;
     }
   }
 
@@ -52,11 +57,19 @@ class MaquinaCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Expanded(child: Text(maquina.nombre, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+                  Expanded(
+                      child: Text(maquina.nombre,
+                          style: const TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold))),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(color: color.withOpacity(.12), borderRadius: BorderRadius.circular(20)),
-                    child: Text(maquina.estadoNombre, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                        color: color.withOpacity(.12),
+                        borderRadius: BorderRadius.circular(20)),
+                    child: Text(maquina.estadoNombre,
+                        style: TextStyle(
+                            color: color, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -65,22 +78,43 @@ class MaquinaCard extends StatelessWidget {
                 spacing: 6,
                 runSpacing: 6,
                 children: [
-                  _EstadoButton(label: 'Trabajando', color: Colors.green, enabled: canEdit, onTap: () => onEstado('trabajando')),
-                  _EstadoButton(label: 'Paro', color: Colors.red, enabled: canEdit, onTap: () => onEstado('paro')),
-                  _EstadoButton(label: 'Manto', color: Colors.orange, enabled: canEdit, onTap: () => onEstado('mantenimiento')),
-                  _EstadoButton(label: 'Limpieza', color: Colors.blue, enabled: canEdit, onTap: () => onEstado('limpieza')),
+                  _EstadoButton(
+                      label: 'Trabajando',
+                      color: Colors.green,
+                      enabled: canEdit,
+                      onTap: () => onEstado('trabajando')),
+                  _EstadoButton(
+                      label: 'Paro',
+                      color: Colors.red,
+                      enabled: canEdit,
+                      onTap: () => onEstado('paro')),
+                  _EstadoButton(
+                      label: 'Manto',
+                      color: Colors.orange,
+                      enabled: canEdit,
+                      onTap: () => onEstado('mantenimiento')),
+                  _EstadoButton(
+                      label: 'Limpieza',
+                      color: Colors.blue,
+                      enabled: canEdit,
+                      onTap: () => onEstado('limpieza')),
                 ],
               ),
               const Divider(height: 24),
               if (maquina.empleados.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(20),
-                  child: Center(child: Text('Arrastra empleados aquí', style: TextStyle(color: Colors.grey))),
+                  child: Center(
+                      child: Text('Arrastra empleados aquí',
+                          style: TextStyle(color: Colors.grey))),
                 ),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: maquina.empleados.map((e) => EmpleadoMuneco(empleado: e, onTap: () => onEmpleadoTap(e))).toList(),
+                children: maquina.empleados
+                    .map((e) => EmpleadoMuneco(
+                        empleado: e, onTap: () => onEmpleadoTap(e)))
+                    .toList(),
               ),
             ],
           ),
@@ -96,7 +130,11 @@ class _EstadoButton extends StatelessWidget {
   final bool enabled;
   final VoidCallback onTap;
 
-  const _EstadoButton({required this.label, required this.color, required this.enabled, required this.onTap});
+  const _EstadoButton(
+      {required this.label,
+      required this.color,
+      required this.enabled,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {

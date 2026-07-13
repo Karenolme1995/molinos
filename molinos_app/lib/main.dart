@@ -26,7 +26,8 @@ class MolinosApp extends StatelessWidget {
         home: Consumer<AuthService>(
           builder: (_, auth, __) {
             if (auth.loading) {
-              return const Scaffold(body: Center(child: CircularProgressIndicator()));
+              return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()));
             }
             return auth.isLoggedIn ? const AppShell() : const LoginScreen();
           },

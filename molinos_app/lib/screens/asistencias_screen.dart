@@ -298,7 +298,9 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
       final pa = _ordenTurnos([ta, tb]).indexOf(ta);
       final pb = _ordenTurnos([ta, tb]).indexOf(tb);
       if (pa != pb) return pa.compareTo(pb);
-      return (a['nombre'] ?? '').toString().compareTo((b['nombre'] ?? '').toString());
+      return (a['nombre'] ?? '')
+          .toString()
+          .compareTo((b['nombre'] ?? '').toString());
     });
 
     if (_q.isEmpty) return lista;
@@ -564,16 +566,15 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
     );
   }
 
-
   String _turnoTexto(Map<String, dynamic> emp) {
-    final raw = (
-      emp['turno'] ??
-      emp['turno_nombre'] ??
-      emp['nombre_turno'] ??
-      emp['turno_actual'] ??
-      emp['turno_descripcion'] ??
-      ''
-    ).toString().trim();
+    final raw = (emp['turno'] ??
+            emp['turno_nombre'] ??
+            emp['nombre_turno'] ??
+            emp['turno_actual'] ??
+            emp['turno_descripcion'] ??
+            '')
+        .toString()
+        .trim();
 
     if (raw.isNotEmpty && raw.toLowerCase() != 'null') {
       return raw.toUpperCase();
@@ -627,7 +628,8 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
     return list;
   }
 
-  Map<String, List<Map<String, dynamic>>> _agruparPorTurno(List<dynamic> empleados) {
+  Map<String, List<Map<String, dynamic>>> _agruparPorTurno(
+      List<dynamic> empleados) {
     final grupos = <String, List<Map<String, dynamic>>>{};
 
     for (final item in empleados) {
@@ -646,7 +648,8 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
   }) {
     final acotacion = emp['acotacion']?.toString();
     final turno = _turnoTexto(emp);
-    final turnoColor = _colorTurno(turno, colorDb: emp['turno_color']?.toString());
+    final turnoColor =
+        _colorTurno(turno, colorDb: emp['turno_color']?.toString());
     final nombre = emp['nombre']?.toString() ?? '';
     final nomina = (emp['numero_nomina'] ?? emp['nomina'] ?? '-').toString();
     final puesto = (emp['puesto'] ?? '-').toString();
@@ -713,7 +716,8 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
                   Text('· $puesto'),
                   if (maquina.isNotEmpty) Text('· $maquina'),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
                       color: turnoColor.withOpacity(.12),
                       borderRadius: BorderRadius.circular(999),
@@ -754,8 +758,6 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
       ),
     );
   }
-
-
 
   Widget _contadorCard({
     required String titulo,
@@ -902,7 +904,8 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: color.withOpacity(.12),
                     borderRadius: BorderRadius.circular(999),
@@ -941,7 +944,8 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
                               children: [
                                 Container(
                                   margin: const EdgeInsets.only(bottom: 6),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: turnoColor.withOpacity(.10),
                                     borderRadius: BorderRadius.circular(999),
@@ -1052,83 +1056,93 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
                   controller: _matrizHorizontalController,
                   scrollDirection: Axis.horizontal,
                   child: DataTable(
-                  headingRowHeight: 44,
-                  dataRowMinHeight: 38,
-                  dataRowMaxHeight: 44,
-                  columnSpacing: 14,
-                  horizontalMargin: 12,
-                  columns: [
-                    const DataColumn(label: Text('Turno')),
-                    const DataColumn(label: Text('Nómina')),
-                    const DataColumn(label: Text('Nombre')),
-                    for (int d = 1; d <= diasMes; d++)
-                      DataColumn(
-                        label: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: _esDomingo(d) ? Colors.amber.shade100 : Colors.transparent,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            _fechaCortaDia(d),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: _esDomingo(d) ? FontWeight.w800 : FontWeight.normal,
-                              color: _esDomingo(d) ? Colors.amber.shade900 : Colors.black87,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                  rows: pagina.map((emp) {
-                    final dias = Map<String, dynamic>.from(emp['dias'] ?? {});
-                    final turno = _turnoTexto(emp);
-                    final turnoColor = _colorTurno(turno, colorDb: emp['turno_color']?.toString());
-
-                    return DataRow(
-                      cells: [
-                        DataCell(
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    headingRowHeight: 44,
+                    dataRowMinHeight: 38,
+                    dataRowMaxHeight: 44,
+                    columnSpacing: 14,
+                    horizontalMargin: 12,
+                    columns: [
+                      const DataColumn(label: Text('Turno')),
+                      const DataColumn(label: Text('Nómina')),
+                      const DataColumn(label: Text('Nombre')),
+                      for (int d = 1; d <= diasMes; d++)
+                        DataColumn(
+                          label: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 2),
                             decoration: BoxDecoration(
-                              color: turnoColor.withOpacity(.12),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(color: turnoColor.withOpacity(.35)),
+                              color: _esDomingo(d)
+                                  ? Colors.amber.shade100
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              turno,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              _fechaCortaDia(d),
                               style: TextStyle(
-                                color: turnoColor,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
+                                fontWeight: _esDomingo(d)
+                                    ? FontWeight.w800
+                                    : FontWeight.normal,
+                                color: _esDomingo(d)
+                                    ? Colors.amber.shade900
+                                    : Colors.black87,
                               ),
                             ),
                           ),
                         ),
-                        DataCell(
-                          Text(
-                            (emp['numero_nomina'] ?? emp['nomina'] ?? '')
-                                .toString(),
-                          ),
-                        ),
-                        DataCell(
-                          SizedBox(
-                            width: 240,
-                            child: Text(
-                              emp['nombre']?.toString() ?? '',
-                              overflow: TextOverflow.ellipsis,
+                    ],
+                    rows: pagina.map((emp) {
+                      final dias = Map<String, dynamic>.from(emp['dias'] ?? {});
+                      final turno = _turnoTexto(emp);
+                      final turnoColor = _colorTurno(turno,
+                          colorDb: emp['turno_color']?.toString());
+
+                      return DataRow(
+                        cells: [
+                          DataCell(
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: turnoColor.withOpacity(.12),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                    color: turnoColor.withOpacity(.35)),
+                              ),
+                              child: Text(
+                                turno,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: turnoColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                        for (int d = 1; d <= diasMes; d++)
                           DataCell(
-                            _celdaDia(dias[d.toString()]?.toString(), d),
+                            Text(
+                              (emp['numero_nomina'] ?? emp['nomina'] ?? '')
+                                  .toString(),
+                            ),
                           ),
-                      ],
-                    );
-                  }).toList(),
+                          DataCell(
+                            SizedBox(
+                              width: 240,
+                              child: Text(
+                                emp['nombre']?.toString() ?? '',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                          for (int d = 1; d <= diasMes; d++)
+                            DataCell(
+                              _celdaDia(dias[d.toString()]?.toString(), d),
+                            ),
+                        ],
+                      );
+                    }).toList(),
                   ),
                 ),
               ),
@@ -1184,7 +1198,8 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
               ),
             ),
             Chip(
-              label: Text('$totalFiltrado de ${_empleadosMatriz.length} empleados'),
+              label: Text(
+                  '$totalFiltrado de ${_empleadosMatriz.length} empleados'),
             ),
             OutlinedButton.icon(
               onPressed: _exportando ? null : _exportarExcel,

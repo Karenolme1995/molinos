@@ -26,7 +26,8 @@ class BitacorasService {
     if (res.statusCode >= 200 && res.statusCode < 300) return body;
 
     var message = 'Error ${res.statusCode}';
-    if (body is Map && body['detail'] != null) message = body['detail'].toString();
+    if (body is Map && body['detail'] != null)
+      message = body['detail'].toString();
     throw Exception(message);
   }
 
@@ -35,7 +36,9 @@ class BitacorasService {
       queryParameters: query == null
           ? null
           : Map<String, String>.fromEntries(
-              query.entries.where((e) => e.value != null && e.value!.isNotEmpty).map(
+              query.entries
+                  .where((e) => e.value != null && e.value!.isNotEmpty)
+                  .map(
                     (e) => MapEntry(e.key, e.value!),
                   ),
             ),
@@ -43,7 +46,9 @@ class BitacorasService {
   }
 
   Future<List<dynamic>> areas() async {
-    final res = await http.get(_uri('/areas'), headers: await _headers()).timeout(_timeout);
+    final res = await http
+        .get(_uri('/areas'), headers: await _headers())
+        .timeout(_timeout);
     final data = Map<String, dynamic>.from(_decode(res));
     return List<dynamic>.from(data['areas'] ?? []);
   }
@@ -71,7 +76,9 @@ class BitacorasService {
   }
 
   Future<void> eliminarArea(int id) async {
-    final res = await http.delete(_uri('/areas/$id'), headers: await _headers()).timeout(_timeout);
+    final res = await http
+        .delete(_uri('/areas/$id'), headers: await _headers())
+        .timeout(_timeout);
     _decode(res);
   }
 
@@ -129,7 +136,9 @@ class BitacorasService {
   }
 
   Future<void> eliminarMaquina(int id) async {
-    final res = await http.delete(_uri('/maquinas/$id'), headers: await _headers()).timeout(_timeout);
+    final res = await http
+        .delete(_uri('/maquinas/$id'), headers: await _headers())
+        .timeout(_timeout);
     _decode(res);
   }
 
@@ -186,7 +195,9 @@ class BitacorasService {
   }
 
   Future<void> eliminarMantenimiento(int id) async {
-    final res = await http.delete(_uri('/mantenimientos/$id'), headers: await _headers()).timeout(_timeout);
+    final res = await http
+        .delete(_uri('/mantenimientos/$id'), headers: await _headers())
+        .timeout(_timeout);
     _decode(res);
   }
 

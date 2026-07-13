@@ -407,7 +407,6 @@ class _ChecadorScreenState extends State<ChecadorScreen> {
     );
   }
 
-
   String? _fotoEmpleadoUrl(dynamic value) {
     final foto = value?.toString().trim() ?? '';
     if (foto.isEmpty) return null;

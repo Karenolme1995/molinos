@@ -133,11 +133,12 @@ class MaquinaHistorialMolino {
 
   bool get mantenimientoActivo {
     final s = (statusManto ?? '').toUpperCase();
-    return tipo == 'mantenimiento' && s != 'TERMINO' && s != 'TERMINADO' && s != 'CERRADO';
+    return tipo == 'mantenimiento' &&
+        s != 'TERMINO' &&
+        s != 'TERMINADO' &&
+        s != 'CERRADO';
   }
 }
-
-
 
 class MantenimientoMolino {
   final int id;
@@ -241,7 +242,8 @@ class MolinosService {
         .toList();
   }
 
-  Future<List<EmpleadoMolinos>> empleados({String q = '', String turno = 'TODOS', String? fechaJornada}) async {
+  Future<List<EmpleadoMolinos>> empleados(
+      {String q = '', String turno = 'TODOS', String? fechaJornada}) async {
     final turnosData = await turnos();
     int? turnoId;
     final filtro = turno.toUpperCase().trim();
@@ -258,10 +260,12 @@ class MolinosService {
       'departamento': 'MOLINOS',
       if (q.trim().isNotEmpty) 'q': q.trim(),
       if (turnoId != null) 'turno_id': turnoId.toString(),
-      if ((fechaJornada ?? '').trim().isNotEmpty) 'fecha_jornada': fechaJornada!.trim(),
+      if ((fechaJornada ?? '').trim().isNotEmpty)
+        'fecha_jornada': fechaJornada!.trim(),
     };
 
-    final uri = Uri.parse('${ApiService.baseUrl}/empleados').replace(queryParameters: query);
+    final uri = Uri.parse('${ApiService.baseUrl}/empleados')
+        .replace(queryParameters: query);
     final res = await http.get(uri, headers: ApiService.headers(token: token));
     return (ApiService.decode(res) as List? ?? [])
         .map((e) => EmpleadoMolinos.fromJson(Map<String, dynamic>.from(e)))
@@ -361,7 +365,6 @@ class MolinosService {
         .toList();
   }
 
-
   Future<void> actualizarTurnoEmpleado({
     required int empleadoId,
     required int turnoId,
@@ -384,7 +387,8 @@ class MolinosService {
     final thursday = date.add(Duration(days: 4 - weekday));
     final firstThursday = DateTime(thursday.year, 1, 4);
     final firstWeekday = firstThursday.weekday == 7 ? 7 : firstThursday.weekday;
-    final week = 1 + ((thursday.difference(firstThursday).inDays + firstWeekday - 1) ~/ 7);
+    final week = 1 +
+        ((thursday.difference(firstThursday).inDays + firstWeekday - 1) ~/ 7);
     return week.clamp(1, 53);
   }
 
@@ -422,7 +426,8 @@ class MolinosService {
       },
     );
     final res = await http.get(uri, headers: ApiService.headers(token: token));
-    return TableroMolinos.fromJson(Map<String, dynamic>.from(ApiService.decode(res)));
+    return TableroMolinos.fromJson(
+        Map<String, dynamic>.from(ApiService.decode(res)));
   }
 
   Future<void> sincronizarTurnos(DateTime fecha) async {
@@ -466,7 +471,6 @@ class MolinosService {
     ApiService.decode(res);
   }
 
-
   Future<List<MantenimientoMolino>> mantenimientosMolinos() async {
     final res = await http.get(
       Uri.parse('${ApiService.baseUrl}/molinos/mantenimientos'),
@@ -477,8 +481,6 @@ class MolinosService {
         .map((e) => MantenimientoMolino.fromJson(Map<String, dynamic>.from(e)))
         .toList();
   }
-
-
 
   Future<MantenimientoMolino> crearMantenimientoMolinos({
     required String tipoMant,
@@ -494,7 +496,8 @@ class MolinosService {
       }),
     );
     final json = Map<String, dynamic>.from(ApiService.decode(res));
-    return MantenimientoMolino.fromJson(Map<String, dynamic>.from(json['mantenimiento']));
+    return MantenimientoMolino.fromJson(
+        Map<String, dynamic>.from(json['mantenimiento']));
   }
 
   Future<void> cambiarEstado({
@@ -531,7 +534,9 @@ class MolinosService {
     required DateTime fecha,
     String turno = 'TODOS',
   }) async {
-    final uri = Uri.parse('${ApiService.baseUrl}/molinos/maquinas/$maquinaId/historial').replace(
+    final uri =
+        Uri.parse('${ApiService.baseUrl}/molinos/maquinas/$maquinaId/historial')
+            .replace(
       queryParameters: {'fecha_jornada': _fmt(fecha), 'turno': turno},
     );
     final res = await http.get(
@@ -540,7 +545,8 @@ class MolinosService {
     );
     final json = Map<String, dynamic>.from(ApiService.decode(res));
     return (json['historial'] as List? ?? [])
-        .map((e) => MaquinaHistorialMolino.fromJson(Map<String, dynamic>.from(e)))
+        .map((e) =>
+            MaquinaHistorialMolino.fromJson(Map<String, dynamic>.from(e)))
         .toList();
   }
 
@@ -550,7 +556,9 @@ class MolinosService {
     String turno = 'TURNO 1',
     String vista = 'dia',
   }) async {
-    final uri = Uri.parse('${ApiService.baseUrl}/molinos/maquinas/$maquinaId/historial').replace(
+    final uri =
+        Uri.parse('${ApiService.baseUrl}/molinos/maquinas/$maquinaId/historial')
+            .replace(
       queryParameters: {
         'fecha_jornada': _fmt(fecha),
         'turno': turno,
@@ -560,16 +568,19 @@ class MolinosService {
     final res = await http.get(uri, headers: ApiService.headers(token: token));
     final json = Map<String, dynamic>.from(ApiService.decode(res));
     final historial = (json['historial'] as List? ?? [])
-        .map((e) => MaquinaHistorialMolino.fromJson(Map<String, dynamic>.from(e)))
+        .map((e) =>
+            MaquinaHistorialMolino.fromJson(Map<String, dynamic>.from(e)))
         .toList();
-    final mantenimientos = historial.where((h) => h.tipo == 'mantenimiento').length;
+    final mantenimientos =
+        historial.where((h) => h.tipo == 'mantenimiento').length;
     return {
       'historial': historial,
       'conteos': {
         'mantenimientos': mantenimientos,
         'estados_asignaciones': historial.length - mantenimientos,
       },
-      'ficha_tecnica': Map<String, dynamic>.from(json['ficha_tecnica'] ?? const {}),
+      'ficha_tecnica':
+          Map<String, dynamic>.from(json['ficha_tecnica'] ?? const {}),
     };
   }
 
@@ -579,7 +590,8 @@ class MolinosService {
     String? descripcionCorrec,
   }) async {
     final res = await http.post(
-      Uri.parse('${ApiService.baseUrl}/molinos/maquinas/$maquinaId/mantenimiento/cerrar'),
+      Uri.parse(
+          '${ApiService.baseUrl}/molinos/maquinas/$maquinaId/mantenimiento/cerrar'),
       headers: ApiService.headers(token: token),
       body: jsonEncode({
         'bitacora_id': bitacoraId,
@@ -588,5 +600,4 @@ class MolinosService {
     );
     ApiService.decode(res);
   }
-
 }

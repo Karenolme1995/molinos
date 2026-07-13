@@ -55,7 +55,9 @@ class EmpleadoMuneco extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
-      child: compacto ? _muneco3D(color, size: 74, soloMuneco: true) : _tarjetaMuneco(color),
+      child: compacto
+          ? _muneco3D(color, size: 74, soloMuneco: true)
+          : _tarjetaMuneco(color),
     );
   }
 
@@ -68,7 +70,8 @@ class EmpleadoMuneco extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: color, width: 2),
         boxShadow: const [
-          BoxShadow(blurRadius: 8, offset: Offset(0, 3), color: Color(0x22000000)),
+          BoxShadow(
+              blurRadius: 8, offset: Offset(0, 3), color: Color(0x22000000)),
         ],
       ),
       child: Row(
@@ -87,9 +90,13 @@ class EmpleadoMuneco extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     _turnoPill(color),
-                    if (!empleado.turnoEnHorario) _avisoPill('Aún no es su turno'),
-                    if (empleado.turnoPorConcluir) _avisoPill('Turno por concluir', warning: true),
-                    if (empleado.acotacion != null && empleado.acotacion!.trim().isNotEmpty) _acotacionPill(),
+                    if (!empleado.turnoEnHorario)
+                      _avisoPill('Aún no es su turno'),
+                    if (empleado.turnoPorConcluir)
+                      _avisoPill('Turno por concluir', warning: true),
+                    if (empleado.acotacion != null &&
+                        empleado.acotacion!.trim().isNotEmpty)
+                      _acotacionPill(),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -97,7 +104,8 @@ class EmpleadoMuneco extends StatelessWidget {
                   empleado.nombre,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w900, fontSize: 13),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -106,12 +114,16 @@ class EmpleadoMuneco extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
                 ),
-                if (empleado.puesto != null && empleado.puesto!.trim().isNotEmpty)
+                if (empleado.puesto != null &&
+                    empleado.puesto!.trim().isNotEmpty)
                   Text(
                     empleado.puesto!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade800, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade800,
+                        fontWeight: FontWeight.w600),
                   ),
                 const SizedBox(height: 3),
                 Text(
@@ -131,7 +143,9 @@ class EmpleadoMuneco extends StatelessWidget {
   }
 
   Widget _turnoPill(Color color) {
-    final turno = empleado.turno?.trim().isNotEmpty == true ? empleado.turno!.trim() : 'SIN TURNO';
+    final turno = empleado.turno?.trim().isNotEmpty == true
+        ? empleado.turno!.trim()
+        : 'SIN TURNO';
     final horario = empleado.horarioTurno;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -144,7 +158,8 @@ class EmpleadoMuneco extends StatelessWidget {
         horario.isEmpty ? turno : '$turno · $horario',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+        style:
+            TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
       ),
     );
   }
@@ -155,7 +170,8 @@ class EmpleadoMuneco extends StatelessWidget {
       decoration: BoxDecoration(
         color: warning ? Colors.red.shade50 : Colors.orange.shade50,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: warning ? Colors.red.shade200 : Colors.orange.shade200),
+        border: Border.all(
+            color: warning ? Colors.red.shade200 : Colors.orange.shade200),
       ),
       child: Text(
         text,
@@ -178,7 +194,8 @@ class EmpleadoMuneco extends StatelessWidget {
       ),
       child: Text(
         empleado.acotacion!,
-        style: const TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold),
+        style: const TextStyle(
+            fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -221,7 +238,12 @@ class EmpleadoMuneco extends StatelessWidget {
                   radius: .95,
                   colors: [Colors.white, Color(0xFFE7E7E7), Color(0xFFCFCFCF)],
                 ),
-                boxShadow: const [BoxShadow(color: Color(0x26000000), blurRadius: 5, offset: Offset(0, 3))],
+                boxShadow: const [
+                  BoxShadow(
+                      color: Color(0x26000000),
+                      blurRadius: 5,
+                      offset: Offset(0, 3))
+                ],
               ),
               child: foto == null
                   ? null
@@ -242,11 +264,16 @@ class EmpleadoMuneco extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: color,
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [BoxShadow(color: Color(0x26000000), blurRadius: 4)],
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x26000000), blurRadius: 4)
+                  ],
                 ),
                 child: Text(
                   empleado.turno ?? 'Turno',
-                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -277,11 +304,15 @@ class _Muneco3DPainter extends CustomPainter {
     final accentPaint = Paint()..color = accent.withOpacity(.90);
 
     void capsule(Rect rect, double radius, Paint paint) {
-      canvas.drawRRect(RRect.fromRectAndRadius(rect, Radius.circular(radius)), paint);
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(rect, Radius.circular(radius)), paint);
     }
 
     // sombra del cuerpo
-    capsule(Rect.fromLTWH(27 * s, 33 * s, 23 * s, 31 * s).translate(1.5 * s, 2 * s), 12 * s, shadow);
+    capsule(
+        Rect.fromLTWH(27 * s, 33 * s, 23 * s, 31 * s).translate(1.5 * s, 2 * s),
+        12 * s,
+        shadow);
 
     // piernas
     capsule(Rect.fromLTWH(26 * s, 56 * s, 11 * s, 17 * s), 7 * s, white);
@@ -317,9 +348,11 @@ class _Muneco3DPainter extends CustomPainter {
 
     // pequeño distintivo de color para turno
     canvas.drawCircle(Offset(50 * s, 43 * s), 4.2 * s, accentPaint);
-    canvas.drawCircle(Offset(50 * s, 43 * s), 2.1 * s, Paint()..color = Colors.white.withOpacity(.85));
+    canvas.drawCircle(Offset(50 * s, 43 * s), 2.1 * s,
+        Paint()..color = Colors.white.withOpacity(.85));
   }
 
   @override
-  bool shouldRepaint(covariant _Muneco3DPainter oldDelegate) => oldDelegate.accent != accent;
+  bool shouldRepaint(covariant _Muneco3DPainter oldDelegate) =>
+      oldDelegate.accent != accent;
 }
