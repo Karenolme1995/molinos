@@ -1,7 +1,9 @@
 import '../utils/web_file_picker.dart';
+import '../utils/file_downloader.dart';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:excel/excel.dart' hide Border;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/empleado_molinos.dart';
@@ -33,6 +35,11 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
   List<EmpleadoMolinos> _empleados = [];
   List<TurnoMolino> _turnosFiltro = [];
   String _turnoFiltro = 'TODOS';
+  bool _exportandoExcel = false;
+  final Map<int, String> _turnoSemanaConsultada = {};
+  final Map<int, String> _nombreTurnoSemanaConsultada = {};
+  DateTime _fechaSemanaConsulta = DateTime.now();
+  final Map<int, String> _estadoRolAnual = {};
   static const List<String> _puestos = [
     'AYUD.GENERAL',
     'LAVADOR',
@@ -68,10 +75,339 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
       _turnosFiltro = _turnosUnicos(await service.turnos());
       _empleados =
           await service.empleados(q: _qCtrl.text.trim(), turno: _turnoFiltro);
+      await _cargarResumenRoles(service);
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+
+  Future<void> _cargarResumenRoles(MolinosService service) async {
+    _turnoSemanaConsultada.clear();
+    _nombreTurnoSemanaConsultada.clear();
+    _estadoRolAnual.clear();
+
+    final ahora = DateTime.now();
+    final anio = ahora.year;
+    final totalSemanas = _semanasIsoDelAnio(anio);
+    final semanaConsulta = _semanaDelAnio(_fechaSemanaConsulta);
+    final anioSemanaConsulta = _anioIso(_fechaSemanaConsulta);
+    final turnosPorId = {for (final t in _turnosFiltro) t.id: t.nombre};
+
+    await Future.wait(_empleados.map((empleado) async {
+      try {
+        final rotacion = await service.rotacionEmpleado(empleado.id);
+
+        bool perteneceAlAnio(RotacionTurnoMolino r, int targetYear) {
+          final fecha = r.fechaInicio?.trim() ?? '';
+          if (fecha.isEmpty) return targetYear == anio;
+          return fecha.startsWith('$targetYear-');
+        }
+
+        final semanasAnio = rotacion
+            .where((r) => perteneceAlAnio(r, anio))
+            .where((r) => r.semanaOrden >= 1 && r.semanaOrden <= totalSemanas)
+            .where((r) => turnosPorId.containsKey(r.turnoId))
+            .map((r) => r.semanaOrden)
+            .toSet();
+
+        final completo = semanasAnio.length == totalSemanas;
+        _estadoRolAnual[empleado.id] = completo
+            ? 'ROL COMPLETO · ${semanasAnio.length}/$totalSemanas semanas'
+            : 'ROL INCOMPLETO · ${semanasAnio.length}/$totalSemanas semanas';
+
+        RotacionTurnoMolino? rolConsultado;
+        for (final r in rotacion) {
+          if (r.semanaOrden == semanaConsulta &&
+              perteneceAlAnio(r, anioSemanaConsulta) &&
+              turnosPorId.containsKey(r.turnoId)) {
+            rolConsultado = r;
+            break;
+          }
+        }
+
+        final nombreTurno = rolConsultado == null
+            ? 'SIN CONFIGURAR'
+            : (turnosPorId[rolConsultado.turnoId] ?? 'SIN CONFIGURAR');
+        _nombreTurnoSemanaConsultada[empleado.id] = nombreTurno;
+        _turnoSemanaConsultada[empleado.id] =
+            'Semana $semanaConsulta ($anioSemanaConsulta): $nombreTurno';
+      } catch (_) {
+        _estadoRolAnual[empleado.id] = 'ROL INCOMPLETO · no se pudo validar';
+        _nombreTurnoSemanaConsultada[empleado.id] = 'SIN CONFIGURAR';
+        _turnoSemanaConsultada[empleado.id] =
+            'Semana $semanaConsulta ($anioSemanaConsulta): SIN CONFIGURAR';
+      }
+    }));
+  }
+
+  int _semanasIsoDelAnio(int year) {
+    return _semanaDelAnio(DateTime(year, 12, 28));
+  }
+
+  int _anioIso(DateTime date) {
+    final jueves = date.add(Duration(days: 4 - date.weekday));
+    return jueves.year;
+  }
+
+  Future<void> _cambiarSemanaConsulta(int semanas) async {
+    setState(() {
+      _fechaSemanaConsulta =
+          _fechaSemanaConsulta.add(Duration(days: semanas * 7));
+    });
+    await _load();
+  }
+
+  Future<void> _volverSemanaActual() async {
+    setState(() => _fechaSemanaConsulta = DateTime.now());
+    await _load();
+  }
+
+  bool get _consultandoSemanaActual {
+    final ahora = DateTime.now();
+    return _semanaDelAnio(_fechaSemanaConsulta) == _semanaDelAnio(ahora) &&
+        _anioIso(_fechaSemanaConsulta) == _anioIso(ahora);
+  }
+
+  ExcelColor _colorTurnoExcel(String turno) {
+    final nombre = turno.toUpperCase().trim();
+    if (nombre.contains('TURNO 1')) {
+      return ExcelColor.fromHexString('#D9EAF7');
+    }
+    if (nombre.contains('TURNO 2')) {
+      return ExcelColor.fromHexString('#FFF2CC');
+    }
+    if (nombre.contains('TURNO 3')) {
+      return ExcelColor.fromHexString('#D9EAD3');
+    }
+    if (nombre.contains('MIXTO')) {
+      return ExcelColor.fromHexString('#FCE4D6');
+    }
+    return ExcelColor.fromHexString('#E7E6E6');
+  }
+
+  String _nombreHojaTurno(String turno) {
+    final limpio = turno
+        .toUpperCase()
+        .replaceAll(RegExp(r'[\\/:?*\[\]]'), ' ')
+        .trim();
+    return limpio.isEmpty ? 'SIN CONFIGURAR' : limpio.substring(0, math.min(31, limpio.length));
+  }
+
+  bool _esSupervisor(EmpleadoMolinos empleado) {
+    return (empleado.puesto ?? '').toUpperCase().contains('SUPERVISOR');
+  }
+
+  TextCellValue _excelText(Object? value) => TextCellValue('${value ?? ''}');
+
+  CellStyle _estiloTituloExcel() => CellStyle(
+        bold: true,
+        fontSize: 16,
+        fontColorHex: ExcelColor.white,
+        backgroundColorHex: ExcelColor.fromHexString('#1F4E78'),
+        horizontalAlign: HorizontalAlign.Center,
+        verticalAlign: VerticalAlign.Center,
+      );
+
+  CellStyle _estiloEncabezadoExcel() => CellStyle(
+        bold: true,
+        fontColorHex: ExcelColor.white,
+        backgroundColorHex: ExcelColor.fromHexString('#4472C4'),
+        horizontalAlign: HorizontalAlign.Center,
+        verticalAlign: VerticalAlign.Center,
+      );
+
+  CellStyle _estiloSupervisorExcel() => CellStyle(
+        bold: true,
+        fontColorHex: ExcelColor.white,
+        backgroundColorHex: ExcelColor.fromHexString('#7030A0'),
+        verticalAlign: VerticalAlign.Center,
+      );
+
+  CellStyle _estiloFilaTurnoExcel(String turno) => CellStyle(
+        backgroundColorHex: _colorTurnoExcel(turno),
+        verticalAlign: VerticalAlign.Center,
+      );
+
+  Future<Map<int, String>> _turnosDeEmpleadosParaSemana(
+    MolinosService service,
+    List<EmpleadoMolinos> empleados,
+  ) async {
+    final resultado = <int, String>{};
+    final semana = _semanaDelAnio(_fechaSemanaConsulta);
+    final anio = _anioIso(_fechaSemanaConsulta);
+    final turnosPorId = {for (final t in _turnosFiltro) t.id: t.nombre};
+
+    await Future.wait(empleados.map((empleado) async {
+      try {
+        final rotacion = await service.rotacionEmpleado(empleado.id);
+        RotacionTurnoMolino? encontrado;
+        for (final rol in rotacion) {
+          final fechaInicio = rol.fechaInicio?.trim() ?? '';
+          final coincideAnio = fechaInicio.isEmpty || fechaInicio.startsWith('$anio-');
+          if (rol.semanaOrden == semana && coincideAnio) {
+            encontrado = rol;
+            break;
+          }
+        }
+        resultado[empleado.id] = encontrado == null
+            ? 'SIN CONFIGURAR'
+            : (turnosPorId[encontrado.turnoId] ?? 'SIN CONFIGURAR');
+      } catch (_) {
+        resultado[empleado.id] = 'SIN CONFIGURAR';
+      }
+    }));
+    return resultado;
+  }
+
+  void _crearHojaTurnoExcel({
+    required Excel excel,
+    required String nombreHoja,
+    required String turno,
+    required List<EmpleadoMolinos> empleados,
+    required int semana,
+    required int anio,
+    required DateTime inicio,
+    required DateTime fin,
+  }) {
+    final sheet = excel[nombreHoja];
+    sheet.merge(CellIndex.indexByString('A1'), CellIndex.indexByString('G1'));
+    final titulo = sheet.cell(CellIndex.indexByString('A1'));
+    titulo.value = _excelText('Rotación de turnos · $turno');
+    titulo.cellStyle = _estiloTituloExcel();
+
+    sheet.merge(CellIndex.indexByString('A2'), CellIndex.indexByString('G2'));
+    final periodo = sheet.cell(CellIndex.indexByString('A2'));
+    periodo.value = _excelText(
+      'Semana $semana de $anio · ${DateFormat('dd/MM/yyyy').format(inicio)} al ${DateFormat('dd/MM/yyyy').format(fin)}',
+    );
+    periodo.cellStyle = CellStyle(
+      bold: true,
+      horizontalAlign: HorizontalAlign.Center,
+      backgroundColorHex: _colorTurnoExcel(turno),
+    );
+
+    final encabezados = <CellValue?>[
+      _excelText('Nómina'),
+      _excelText('Empleado'),
+      _excelText('Puesto'),
+      _excelText('Turno'),
+      _excelText('Semana'),
+      _excelText('Periodo'),
+      _excelText('Estatus'),
+    ];
+    sheet.appendRow(encabezados);
+    for (var c = 0; c < encabezados.length; c++) {
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: c, rowIndex: 2)).cellStyle =
+          _estiloEncabezadoExcel();
+    }
+
+    empleados.sort((a, b) {
+      final supervisorA = _esSupervisor(a) ? 0 : 1;
+      final supervisorB = _esSupervisor(b) ? 0 : 1;
+      final porSupervisor = supervisorA.compareTo(supervisorB);
+      if (porSupervisor != 0) return porSupervisor;
+      return a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase());
+    });
+
+    for (final empleado in empleados) {
+      sheet.appendRow(<CellValue?>[
+        _excelText(empleado.numeroNomina),
+        _excelText(empleado.nombre),
+        _excelText(empleado.puesto ?? 'Sin puesto'),
+        _excelText(turno),
+        _excelText(semana),
+        _excelText('${DateFormat('dd/MM/yyyy').format(inicio)} - ${DateFormat('dd/MM/yyyy').format(fin)}'),
+        _excelText(empleado.status ?? (empleado.activo == 1 ? 'ACTIVO' : 'INACTIVO')),
+      ]);
+      final rowIndex = sheet.maxRows - 1;
+      final estilo = _esSupervisor(empleado)
+          ? _estiloSupervisorExcel()
+          : _estiloFilaTurnoExcel(turno);
+      for (var c = 0; c < 7; c++) {
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: c, rowIndex: rowIndex)).cellStyle = estilo;
+      }
+    }
+
+    const widths = <double>[14, 30, 22, 16, 12, 26, 14];
+    for (var c = 0; c < widths.length; c++) {
+      sheet.setColumnWidth(c, widths[c]);
+    }
+  }
+
+  Future<void> _exportarExcel({String? soloTurno}) async {
+    if (_exportandoExcel) return;
+    if (soloTurno != null && soloTurno == 'TODOS') {
+      _msg('Selecciona TURNO 1, TURNO 2, TURNO 3 o MIXTO para descargar un solo turno.');
+      return;
+    }
+
+    setState(() => _exportandoExcel = true);
+    try {
+      final service = _service();
+      final empleados = await service.empleados(q: '', turno: 'TODOS');
+      final turnosSemana = await _turnosDeEmpleadosParaSemana(service, empleados);
+      final semana = _semanaDelAnio(_fechaSemanaConsulta);
+      final anio = _anioIso(_fechaSemanaConsulta);
+      final inicio = _inicioSemanaIso(semana, year: anio);
+      final fin = _finSemanaIso(semana, year: anio);
+
+      final grupos = <String, List<EmpleadoMolinos>>{};
+      for (final empleado in empleados) {
+        final turno = turnosSemana[empleado.id] ?? 'SIN CONFIGURAR';
+        if (soloTurno != null && turno.toUpperCase() != soloTurno.toUpperCase()) {
+          continue;
+        }
+        grupos.putIfAbsent(turno, () => <EmpleadoMolinos>[]).add(empleado);
+      }
+
+      if (grupos.isEmpty) {
+        _msg('No hay empleados configurados para ese turno en la semana $semana.');
+        return;
+      }
+
+      final excel = Excel.createExcel();
+      final hojaInicial = excel.getDefaultSheet();
+      final ordenPreferido = ['TURNO 1', 'TURNO 2', 'TURNO 3', 'MIXTO', 'SIN CONFIGURAR'];
+      final nombresOrdenados = grupos.keys.toList()
+        ..sort((a, b) {
+          final ia = ordenPreferido.indexOf(a.toUpperCase());
+          final ib = ordenPreferido.indexOf(b.toUpperCase());
+          final oa = ia < 0 ? 999 : ia;
+          final ob = ib < 0 ? 999 : ib;
+          return oa != ob ? oa.compareTo(ob) : a.compareTo(b);
+        });
+
+      for (final turno in nombresOrdenados) {
+        _crearHojaTurnoExcel(
+          excel: excel,
+          nombreHoja: _nombreHojaTurno(turno),
+          turno: turno,
+          empleados: List<EmpleadoMolinos>.from(grupos[turno]!),
+          semana: semana,
+          anio: anio,
+          inicio: inicio,
+          fin: fin,
+        );
+      }
+      if (hojaInicial != null && !nombresOrdenados.contains(hojaInicial)) {
+        excel.delete(hojaInicial);
+      }
+
+      final bytes = excel.save();
+      if (bytes == null) throw Exception('No se pudo generar el archivo Excel.');
+      final sufijo = soloTurno == null
+          ? 'todos_los_turnos'
+          : soloTurno.toLowerCase().replaceAll(' ', '_');
+      final filename = 'rotacion_semana_${semana}_${anio}_$sufijo.xlsx';
+      descargarArchivo(bytes: Uint8List.fromList(bytes), filename: filename);
+      _msg('Excel generado: $filename');
+    } catch (e) {
+      _msg('Error al exportar Excel: ${e.toString().replaceFirst('Exception: ', '')}');
+    } finally {
+      if (mounted) setState(() => _exportandoExcel = false);
     }
   }
 
@@ -323,34 +659,13 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
   }
 
   Future<_FotoSeleccionada?> _seleccionarFoto() async {
-    final input = html.FileUploadInputElement()..accept = 'image/*';
-    input.setAttribute('capture', 'environment');
-    input.click();
-    await input.onChange.first;
-
-    final file = input.files?.isNotEmpty == true ? input.files!.first : null;
-    if (file == null) return null;
-
-    final reader = html.FileReader();
-    reader.readAsArrayBuffer(file);
-    await reader.onLoad.first;
-
-    final result = reader.result;
-    late final Uint8List bytes;
-
-    if (result is ByteBuffer) {
-      bytes = Uint8List.view(result);
-    } else if (result is Uint8List) {
-      bytes = result;
-    } else if (result is List<int>) {
-      bytes = Uint8List.fromList(result);
-    } else {
-      throw Exception(
-          'No se pudo leer la foto seleccionada. Intenta con otra imagen JPG, PNG o WEBP.');
-    }
+    final picked = await seleccionarImagenWeb();
+    if (picked == null) return null;
 
     return _FotoSeleccionada(
-        bytes: bytes, filename: file.name.isEmpty ? 'empleado.jpg' : file.name);
+      bytes: picked.bytes,
+      filename: picked.filename,
+    );
   }
 
   Future<void> _subirFoto(EmpleadoMolinos empleado) async {
@@ -439,11 +754,26 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                       final i = entry.key;
                       final r = entry.value;
                       final semanaActual = _semanaDelAnio(DateTime.now());
-                      final maxSemana = math.max(53,
-                          rotacion.map((x) => x.semanaOrden).reduce(math.max));
                       final semanaValue = r.semanaOrden <= 0
-                          ? _semanaDelAnio(DateTime.now())
+                          ? semanaActual
                           : r.semanaOrden;
+                      final maxSemana = math.max(
+                        53,
+                        rotacion.map((x) => x.semanaOrden).reduce(math.max),
+                      );
+                      // Incluye también semanas guardadas anteriores a la actual.
+                      // Así el Dropdown siempre contiene exactamente un elemento
+                      // con el valor seleccionado (por ejemplo, la semana 28).
+                      final minSemana = math.min(semanaActual, semanaValue);
+                      final semanasDisponibles = List<int>.generate(
+                        (maxSemana - minSemana) + 1,
+                        (idx) => minSemana + idx,
+                      ).toSet().toList()
+                        ..sort();
+                      final semanaDropdownValue =
+                          semanasDisponibles.contains(semanaValue)
+                              ? semanaValue
+                              : null;
                       final turnoValue = _turnoValido(r.turnoId, turnos);
                       final fechaInicioAuto = _fechaSemanaInicio(semanaValue);
                       final fechaFinAuto = _fechaSemanaFin(semanaValue);
@@ -459,14 +789,15 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                                   SizedBox(
                                     width: 190,
                                     child: DropdownButtonFormField<int>(
-                                      value: semanaValue,
-                                      items: List.generate(
-                                              (maxSemana - semanaActual) + 1,
-                                              (idx) => semanaActual + idx)
-                                          .map<DropdownMenuItem<int>>((w) =>
-                                              DropdownMenuItem<int>(
-                                                  value: w,
-                                                  child: Text('Semana $w')))
+                                      value: semanaDropdownValue,
+                                      isExpanded: true,
+                                      items: semanasDisponibles
+                                          .map<DropdownMenuItem<int>>(
+                                            (w) => DropdownMenuItem<int>(
+                                              value: w,
+                                              child: Text('Semana $w'),
+                                            ),
+                                          )
                                           .toList(),
                                       onChanged: (value) {
                                         if (value == null) return;
@@ -485,6 +816,7 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                                   Expanded(
                                     child: DropdownButtonFormField<int>(
                                       value: turnoValue,
+                                      isExpanded: true,
                                       items: turnos
                                           .map<DropdownMenuItem<int>>(
                                             (t) => DropdownMenuItem<int>(
@@ -608,11 +940,39 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              Text(
-                  'Empleados Molinos · Semana del año ${_semanaDelAnio(DateTime.now())}',
-                  style: const TextStyle(
-                      fontSize: 22, fontWeight: FontWeight.bold)),
-              const SizedBox(width: 16),
+              IconButton.filledTonal(
+                tooltip: 'Ver semana anterior',
+                onPressed: () => _cambiarSemanaConsulta(-1),
+                icon: const Icon(Icons.chevron_left),
+              ),
+              const SizedBox(width: 4),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Empleados Molinos · Semana ${_semanaDelAnio(_fechaSemanaConsulta)}',
+                    style: const TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    '${_anioIso(_fechaSemanaConsulta)} · ${DateFormat('dd/MM/yyyy').format(_inicioSemanaIso(_semanaDelAnio(_fechaSemanaConsulta), year: _anioIso(_fechaSemanaConsulta)))} al ${DateFormat('dd/MM/yyyy').format(_finSemanaIso(_semanaDelAnio(_fechaSemanaConsulta), year: _anioIso(_fechaSemanaConsulta)))}',
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 4),
+              IconButton.filledTonal(
+                tooltip: 'Ver semana siguiente',
+                onPressed: () => _cambiarSemanaConsulta(1),
+                icon: const Icon(Icons.chevron_right),
+              ),
+              const SizedBox(width: 6),
+              TextButton.icon(
+                onPressed: _consultandoSemanaActual ? null : _volverSemanaActual,
+                icon: const Icon(Icons.today),
+                label: const Text('Hoy'),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: TextField(
                   controller: _qCtrl,
@@ -624,6 +984,27 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
               ),
               const SizedBox(width: 8),
               IconButton(onPressed: _load, icon: const Icon(Icons.search)),
+              const SizedBox(width: 6),
+              OutlinedButton.icon(
+                onPressed: _exportandoExcel ? null : () => _exportarExcel(),
+                icon: _exportandoExcel
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.table_view),
+                label: const Text('Excel semanal'),
+              ),
+              const SizedBox(width: 6),
+              OutlinedButton.icon(
+                onPressed: _exportandoExcel
+                    ? null
+                    : () => _exportarExcel(soloTurno: _turnoFiltro),
+                icon: const Icon(Icons.download),
+                label: const Text('Excel del turno'),
+              ),
+              const SizedBox(width: 6),
               FilledButton.icon(
                   onPressed: () => _editar(),
                   icon: const Icon(Icons.add),
@@ -685,8 +1066,29 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
                           title: Text(e.nombre,
                               style:
                                   const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text(
-                            'Nómina: ${e.numeroNomina} · ${e.puesto ?? 'Sin puesto'} · Actual: ${e.turno ?? 'Sin turno'} · Sigue: ${e.proximoTurno ?? 'Sin próximo turno'} · ${e.status ?? (e.activo == 1 ? 'ACTIVO' : 'INACTIVO')}',
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Nómina: ${e.numeroNomina} · ${e.puesto ?? 'Sin puesto'} · Actual: ${e.turno ?? 'Sin turno'} · ${e.status ?? (e.activo == 1 ? 'ACTIVO' : 'INACTIVO')}',
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                _turnoSemanaConsultada[e.id] ??
+                                    'Semana consultada: SIN CONFIGURAR',
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              Text(
+                                'Rol ${DateTime.now().year}: ${_estadoRolAnual[e.id] ?? 'ROL INCOMPLETO'}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: (_estadoRolAnual[e.id] ?? '')
+                                          .startsWith('ROL COMPLETO')
+                                      ? Colors.green.shade700
+                                      : Colors.orange.shade800,
+                                ),
+                              ),
+                            ],
                           ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
