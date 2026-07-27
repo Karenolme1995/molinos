@@ -10,7 +10,7 @@ import '../models/empleado_molinos.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/molinos_service.dart';
-
+//  Class to represent a selected photo with its byte data and filename
 class _FotoSeleccionada {
   final Uint8List bytes;
   final String filename;
@@ -20,14 +20,14 @@ class _FotoSeleccionada {
     required this.filename,
   });
 }
-
+//  Stateful widget for the EmpleadosScreen, managing the state of employees, their shifts, and related functionalities
 class EmpleadosScreen extends StatefulWidget {
   const EmpleadosScreen({super.key});
 
   @override
   State<EmpleadosScreen> createState() => _EmpleadosScreenState();
 }
-
+//  State class for the EmpleadosScreen, handling data loading, filtering, exporting to Excel, and editing employee information
 class _EmpleadosScreenState extends State<EmpleadosScreen> {
   final _qCtrl = TextEditingController();
   bool _loading = true;
@@ -61,7 +61,7 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
     _qCtrl.dispose();
     super.dispose();
   }
-
+//  Method to create an instance of MolinosService using the current authentication token
   MolinosService _service() =>
       MolinosService(context.read<AuthService>().token!);
 
@@ -82,13 +82,13 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
       if (mounted) setState(() => _loading = false);
     }
   }
-
+//  Method to load the summary of roles for each employee, including their shift for the consulted week and the completeness of their annual schedule
 
   Future<void> _cargarResumenRoles(MolinosService service) async {
     _turnoSemanaConsultada.clear();
     _nombreTurnoSemanaConsultada.clear();
     _estadoRolAnual.clear();
-
+//  Get the current date and year, calculate the total number of ISO weeks in the year, and determine the week and year for the consulted date
     final ahora = DateTime.now();
     final anio = ahora.year;
     final totalSemanas = _semanasIsoDelAnio(anio);
@@ -142,16 +142,16 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
       }
     }));
   }
-
+//  Method to calculate the ISO week number for a given date
   int _semanasIsoDelAnio(int year) {
     return _semanaDelAnio(DateTime(year, 12, 28));
   }
-
+//  Method to calculate the ISO week number for a given date
   int _anioIso(DateTime date) {
     final jueves = date.add(Duration(days: 4 - date.weekday));
     return jueves.year;
   }
-
+//  Method to calculate the ISO week number for a given date    
   Future<void> _cambiarSemanaConsulta(int semanas) async {
     setState(() {
       _fechaSemanaConsulta =
@@ -159,18 +159,18 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
     });
     await _load();
   }
-
+//  Method to reset the consulted week to the current week and reload data
   Future<void> _volverSemanaActual() async {
     setState(() => _fechaSemanaConsulta = DateTime.now());
     await _load();
   }
-
+//  Getter to check if the consulted week is the current week
   bool get _consultandoSemanaActual {
     final ahora = DateTime.now();
     return _semanaDelAnio(_fechaSemanaConsulta) == _semanaDelAnio(ahora) &&
         _anioIso(_fechaSemanaConsulta) == _anioIso(ahora);
   }
-
+//  Method to determine the background color for a given shift name, used for Excel export styling
   ExcelColor _colorTurnoExcel(String turno) {
     final nombre = turno.toUpperCase().trim();
     if (nombre.contains('TURNO 1')) {
@@ -187,7 +187,7 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
     }
     return ExcelColor.fromHexString('#E7E6E6');
   }
-
+//  Method to generate a valid sheet name for Excel based on the shift name, ensuring it is uppercase, free of invalid characters, and within the 31-character limit
   String _nombreHojaTurno(String turno) {
     final limpio = turno
         .toUpperCase()
@@ -195,13 +195,13 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
         .trim();
     return limpio.isEmpty ? 'SIN CONFIGURAR' : limpio.substring(0, math.min(31, limpio.length));
   }
-
+//  Method to check if an employee's position indicates they are a supervisor, based on the presence of the word "SUPERVISOR" in their job title
   bool _esSupervisor(EmpleadoMolinos empleado) {
     return (empleado.puesto ?? '').toUpperCase().contains('SUPERVISOR');
   }
-
+//  Method to create a TextCellValue for Excel from a given value, defaulting to an empty string if the value is null
   TextCellValue _excelText(Object? value) => TextCellValue('${value ?? ''}');
-
+//  Method to define the cell style for the title row in Excel, including bold text, font size, font color, background color, and alignment
   CellStyle _estiloTituloExcel() => CellStyle(
         bold: true,
         fontSize: 16,
@@ -729,7 +729,7 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
         ),
       ];
     }
-
+//  Show a dialog to edit the weekly rotation for the selected employee, allowing the user to configure shifts for upcoming weeks
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => StatefulBuilder(
@@ -930,7 +930,7 @@ class _EmpleadosScreenState extends State<EmpleadosScreen> {
             7);
     return week.clamp(1, 53);
   }
-
+//  Method to get the ISO year of a given date, which may differ from the calendar year for dates in early January or late December
   @override
   Widget build(BuildContext context) {
     return Column(

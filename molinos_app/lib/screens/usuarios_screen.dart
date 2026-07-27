@@ -3,14 +3,14 @@ import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
 import '../services/crud_service.dart';
-
+// Pantalla para gestionar usuarios, incluyendo búsqueda, listado, creación y edición de usuarios
 class UsuariosScreen extends StatefulWidget {
   const UsuariosScreen({super.key});
 
   @override
   State<UsuariosScreen> createState() => _UsuariosScreenState();
 }
-
+// Estado de la pantalla de usuarios, maneja la carga de datos, búsqueda y acciones sobre los usuarios
 class _UsuariosScreenState extends State<UsuariosScreen> {
   bool loading = true;
 
@@ -20,13 +20,13 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
   String q = '';
 
   final TextEditingController _buscarCtrl = TextEditingController();
-
+// Inicializa el estado y carga los datos de usuarios y áreas después de que el widget se haya renderizado
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => load());
   }
-
+// Libera los recursos del controlador de búsqueda cuando el widget se elimina del árbol de widgets
   @override
   void dispose() {
     _buscarCtrl.dispose();
@@ -37,7 +37,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     final token = context.read<AuthService>().token!;
     return CrudService(token);
   }
-
+// Carga los usuarios y áreas desde el servidor, actualizando el estado de la pantalla y manejando errores
   Future<void> load() async {
     final crud = _crud;
 
@@ -76,7 +76,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
       );
     }
   }
-
+// Elimina áreas duplicadas de la lista de áreas, asegurando que cada área tenga un ID único
   List<dynamic> _limpiarAreasDuplicadas(List<dynamic> data) {
     final Set<int> usados = {};
     final List<dynamic> limpias = [];
@@ -101,7 +101,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     q = _buscarCtrl.text.trim();
     await load();
   }
-
+// Abre un formulario de usuario en un diálogo, permitiendo la creación o edición de un usuario, y recarga la lista de usuarios si se realiza algún cambio
   Future<void> _abrirFormulario({Map<String, dynamic>? usuario}) async {
     final result = await showDialog<bool>(
       context: context,
@@ -118,7 +118,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
       await load();
     }
   }
-
+// Desactiva un usuario después de confirmar la acción con el usuario, actualizando la lista de usuarios y mostrando mensajes de éxito o error según corresponda
   Future<void> _desactivarUsuario(Map<String, dynamic> usuario) async {
     final id = usuario['id'];
     final nombre = usuario['nombre'] ?? '';
@@ -143,7 +143,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
         );
       },
     );
-
+// Si el usuario no confirma la desactivación, se cancela la operación
     if (confirmar != true) return;
 
     try {
@@ -156,7 +156,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
           content: Text('Usuario desactivado'),
         ),
       );
-
+// Después de desactivar el usuario, se recarga la lista de usuarios para reflejar los cambios
       await load();
     } catch (e) {
       if (!mounted) return;
@@ -169,12 +169,12 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
       );
     }
   }
-
+// Determina el color de estado basado en si el usuario está activo o inactivo, retornando verde para activo y rojo para inactivo
   Color _statusColor(dynamic activo) {
     final isActivo = activo == 1 || activo == true || activo == '1';
     return isActivo ? Colors.green : Colors.red;
   }
-
+// Determina el texto de estado basado en si el usuario está activo o inactivo, retornando 'Activo' para activo y 'Inactivo' para inactivo
   String _statusText(dynamic activo) {
     final isActivo = activo == 1 || activo == true || activo == '1';
     return isActivo ? 'Activo' : 'Inactivo';
@@ -183,7 +183,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
   bool _isActivo(dynamic activo) {
     return activo == 1 || activo == true || activo == '1';
   }
-
+// Construye la interfaz de usuario de la pantalla de usuarios, incluyendo la barra de búsqueda, botones de acción y la lista de usuarios con sus detalles y acciones disponibles
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -320,7 +320,7 @@ class _UsuariosScreenState extends State<UsuariosScreen> {
     );
   }
 }
-
+// Diálogo que contiene el formulario para crear o editar un usuario, manejando la validación de campos y la comunicación con el servidor
 class _UsuarioFormDialog extends StatefulWidget {
   final Map<String, dynamic>? usuario;
   final List<dynamic> areas;
@@ -333,7 +333,7 @@ class _UsuarioFormDialog extends StatefulWidget {
   @override
   State<_UsuarioFormDialog> createState() => _UsuarioFormDialogState();
 }
-
+// Estado del diálogo de formulario de usuario, maneja la lógica de validación, envío de datos y actualización de la interfaz
 class _UsuarioFormDialogState extends State<_UsuarioFormDialog> {
   final _formKey = GlobalKey<FormState>();
 
@@ -341,7 +341,7 @@ class _UsuarioFormDialogState extends State<_UsuarioFormDialog> {
   late TextEditingController usuarioCtrl;
   late TextEditingController passwordCtrl;
   late TextEditingController correoCtrl;
-
+// Controladores de texto para los campos del formulario, inicializados con los valores del usuario si se está editando
   String tipo = 'Usuario';
   int? areaId;
   bool activo = true;
@@ -379,7 +379,7 @@ class _UsuarioFormDialogState extends State<_UsuarioFormDialog> {
         ? true
         : u?['activo'] == 1 || u?['activo'] == true || u?['activo'] == '1';
   }
-
+// Libera los recursos de los controladores de texto cuando el diálogo se elimina del árbol de widgets
   @override
   void dispose() {
     nombreCtrl.dispose();
@@ -388,7 +388,7 @@ class _UsuarioFormDialogState extends State<_UsuarioFormDialog> {
     correoCtrl.dispose();
     super.dispose();
   }
-
+// Normaliza el tipo de usuario a un formato consistente, asegurando que se devuelvan valores válidos para 'Administrador', 'Supervisor' o 'Usuario'
   String _normalizarTipo(String value) {
     final v = value.trim().toLowerCase();
 
@@ -398,17 +398,18 @@ class _UsuarioFormDialogState extends State<_UsuarioFormDialog> {
 
     return 'Usuario';
   }
+  // Convierte un valor dinámico a un entero, devolviendo null si la conversión no es posible
 
   int? _toIntOrNull(dynamic value) {
     if (value == null) return null;
     if (value is int) return value;
     return int.tryParse(value.toString());
   }
-
+// Determina si un valor dinámico representa un estado activo, considerando 1, true o '1' como activos
   bool _isActivo(dynamic value) {
     return value == 1 || value == true || value == '1';
   }
-
+// Construye la lista de elementos del menú desplegable para seleccionar un área, asegurando que no haya áreas duplicadas y que se incluya una opción para "Sin área"
   List<DropdownMenuItem<int?>> _buildAreaItems() {
     final List<DropdownMenuItem<int?>> items = [
       const DropdownMenuItem<int?>(
@@ -416,9 +417,9 @@ class _UsuarioFormDialogState extends State<_UsuarioFormDialog> {
         child: Text('Sin área'),
       ),
     ];
-
+  // Utiliza un conjunto para rastrear los IDs de áreas ya agregadas y evitar duplicados
     final Set<int> usedAreaIds = {};
-
+// Itera sobre las áreas proporcionadas, agregando cada área única al menú desplegable y asegurando que se manejen correctamente los valores nulos y los IDs duplicados
     for (final a in widget.areas) {
       if (a == null) continue;
 
@@ -462,7 +463,7 @@ class _UsuarioFormDialogState extends State<_UsuarioFormDialog> {
 
     return null;
   }
-
+// Guarda los datos del formulario de usuario, enviando una solicitud al servidor para crear o actualizar un usuario según corresponda, y maneja la validación de campos y la retroalimentación al usuario
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -514,7 +515,7 @@ class _UsuarioFormDialogState extends State<_UsuarioFormDialog> {
       );
     }
   }
-
+// Construye la decoración de entrada para los campos del formulario, incluyendo el texto de la etiqueta, el icono y el estilo del borde
   InputDecoration _decoracion(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
@@ -525,6 +526,8 @@ class _UsuarioFormDialogState extends State<_UsuarioFormDialog> {
     );
   }
 
+  // Construye la interfaz de usuario del diálogo de formulario de usuario, incluyendo los campos de entrada, menús desplegables y botones de acción, y maneja la validación y el envío de datos
+
   @override
   Widget build(BuildContext context) {
     final areaItems = _buildAreaItems();
@@ -533,8 +536,8 @@ class _UsuarioFormDialogState extends State<_UsuarioFormDialog> {
     if (safeAreaId != areaId) {
       areaId = safeAreaId;
     }
-
-    return AlertDialog(
+// Devuelve un AlertDialog que contiene el formulario de usuario, con campos para nombre, usuario, contraseña, tipo, área, correo y estado activo, así como botones para cancelar o guardar los cambios
+return AlertDialog(
       title: Text(isEdit ? 'Editar usuario' : 'Nuevo usuario'),
       content: SizedBox(
         width: 520,

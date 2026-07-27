@@ -22,14 +22,14 @@ class TableroMolinos {
     required this.ausentes,
     required this.alertas,
   });
-
+// Factory method to create an instance from JSON
   factory TableroMolinos.fromJson(Map<String, dynamic> json) {
     List<EmpleadoMolinos> empleadosFrom(dynamic value) {
       return (value as List? ?? [])
           .map((e) => EmpleadoMolinos.fromJson(Map<String, dynamic>.from(e)))
           .toList();
     }
-
+// Create a TableroMolinos instance from JSON data
     return TableroMolinos(
       fechaJornada: DateTime.tryParse((json['fecha_jornada'] ?? '').toString()),
       maquinas: (json['maquinas'] as List? ?? [])
@@ -44,6 +44,7 @@ class TableroMolinos {
   }
 }
 
+// Class representing the maintenance history of a machine in the mill
 class MaquinaHistorialMolino {
   final String tipo;
   final String fecha;
@@ -68,6 +69,7 @@ class MaquinaHistorialMolino {
   final String? usuario;
   final String? numero;
 
+// Constructor
   const MaquinaHistorialMolino({
     required this.tipo,
     required this.fecha,
@@ -93,6 +95,7 @@ class MaquinaHistorialMolino {
     this.numero,
   });
 
+// Factory method to create an instance from JSON
   factory MaquinaHistorialMolino.fromJson(Map<String, dynamic> json) {
     return MaquinaHistorialMolino(
       tipo: (json['tipo'] ?? '').toString(),
@@ -119,13 +122,13 @@ class MaquinaHistorialMolino {
       numero: _nullable(json['numero']),
     );
   }
-
+// Helper methods to handle nullable values and type conversions
   static String? _nullable(dynamic value) {
     if (value == null) return null;
     final text = value.toString();
     return text.isEmpty ? null : text;
   }
-
+// Helper method to convert a dynamic value to an integer or return null
   static int? _intOrNull(dynamic value) {
     if (value == null) return null;
     return int.tryParse(value.toString());
@@ -139,14 +142,14 @@ class MaquinaHistorialMolino {
         s != 'CERRADO';
   }
 }
-
+// Class representing maintenance information for a mill
 class MantenimientoMolino {
   final int id;
   final String tipoMant;
   final String tiempoMant;
   final int idArea;
   final String? area;
-
+//  Constructor
   const MantenimientoMolino({
     required this.id,
     required this.tipoMant,
@@ -154,7 +157,7 @@ class MantenimientoMolino {
     required this.idArea,
     this.area,
   });
-
+// Factory method to create an instance from JSON
   factory MantenimientoMolino.fromJson(Map<String, dynamic> json) {
     return MantenimientoMolino(
       id: int.tryParse((json['id'] ?? '0').toString()) ?? 0,
@@ -165,14 +168,14 @@ class MantenimientoMolino {
     );
   }
 }
-
+// Class representing a shift in the mill
 class TurnoMolino {
   final int id;
   final String nombre;
   final String? horaInicio;
   final String? horaFin;
   final String? color;
-
+// Constructor
   const TurnoMolino({
     required this.id,
     required this.nombre,
@@ -180,7 +183,7 @@ class TurnoMolino {
     this.horaFin,
     this.color,
   });
-
+// Factory method to create an instance from JSON
   factory TurnoMolino.fromJson(Map<String, dynamic> json) {
     return TurnoMolino(
       id: int.tryParse((json['id'] ?? '0').toString()) ?? 0,
@@ -192,6 +195,7 @@ class TurnoMolino {
   }
 }
 
+// Helper method to handle nullable text values
 class RotacionTurnoMolino {
   final int semanaOrden;
   final int turnoId;
@@ -204,7 +208,7 @@ class RotacionTurnoMolino {
     this.fechaInicio,
     this.fechaFin,
   });
-
+// Factory method to create an instance from JSON
   factory RotacionTurnoMolino.fromJson(Map<String, dynamic> json) {
     return RotacionTurnoMolino(
       semanaOrden: int.tryParse((json['semana_orden'] ?? '1').toString()) ?? 1,
@@ -213,7 +217,7 @@ class RotacionTurnoMolino {
       fechaFin: _nullableText(json['fecha_fin']),
     );
   }
-
+// Method to convert the instance to JSON
   Map<String, dynamic> toJson() => {
         'semana_orden': semanaOrden,
         'turno_id': turnoId,
@@ -221,13 +225,13 @@ class RotacionTurnoMolino {
         'fecha_fin': fechaFin,
       };
 }
-
+// Helper method to handle nullable text values
 String? _nullableText(dynamic value) {
   if (value == null) return null;
   final text = value.toString();
   return text.trim().isEmpty ? null : text;
 }
-
+// Service class for managing mill operations and employee data
 class MolinosService {
   final String token;
   MolinosService(this.token);
@@ -241,7 +245,7 @@ class MolinosService {
         .map((e) => TurnoMolino.fromJson(Map<String, dynamic>.from(e)))
         .toList();
   }
-
+// Method to fetch employees based on search query, shift, and date
   Future<List<EmpleadoMolinos>> empleados(
       {String q = '', String turno = 'TODOS', String? fechaJornada}) async {
     final turnosData = await turnos();
@@ -255,6 +259,7 @@ class MolinosService {
         }
       }
     }
+//  Build query parameters for the API request
 
     final query = <String, String>{
       'departamento': 'MOLINOS',
@@ -271,7 +276,7 @@ class MolinosService {
         .map((e) => EmpleadoMolinos.fromJson(Map<String, dynamic>.from(e)))
         .toList();
   }
-
+// Method to create a new employee record in the system
   Future<int> crearEmpleado({
     required String numeroNomina,
     required String nombre,
@@ -301,7 +306,8 @@ class MolinosService {
     final json = Map<String, dynamic>.from(ApiService.decode(res));
     return int.tryParse((json['id'] ?? '0').toString()) ?? 0;
   }
-
+  
+// Method to update an existing employee record in the system
   Future<void> actualizarEmpleado({
     required int empleadoId,
     required String numeroNomina,
@@ -331,7 +337,7 @@ class MolinosService {
     );
     ApiService.decode(res);
   }
-
+// Method to upload a photo for an employee
   Future<void> subirFotoEmpleado({
     required int empleadoId,
     required List<int> bytes,
@@ -353,7 +359,7 @@ class MolinosService {
     final res = await http.Response.fromStream(streamed);
     ApiService.decode(res);
   }
-
+// Method to fetch the rotation schedule for a specific employee
   Future<List<RotacionTurnoMolino>> rotacionEmpleado(int empleadoId) async {
     final res = await http.get(
       Uri.parse('${ApiService.baseUrl}/empleados/rotacion/$empleadoId'),
@@ -364,7 +370,7 @@ class MolinosService {
         .map((e) => RotacionTurnoMolino.fromJson(Map<String, dynamic>.from(e)))
         .toList();
   }
-
+// Method to update the shift assignment for an employee on a specific date
   Future<void> actualizarTurnoEmpleado({
     required int empleadoId,
     required int turnoId,
@@ -381,7 +387,7 @@ class MolinosService {
       ],
     );
   }
-
+// Helper method to calculate the week number of the year for a given date
   int _semanaDelAnio(DateTime date) {
     final weekday = date.weekday == 7 ? 7 : date.weekday;
     final thursday = date.add(Duration(days: 4 - weekday));
@@ -391,7 +397,7 @@ class MolinosService {
         ((thursday.difference(firstThursday).inDays + firstWeekday - 1) ~/ 7);
     return week.clamp(1, 53);
   }
-
+// Method to save the rotation schedule for an employee
   Future<void> guardarRotacionEmpleado({
     required int empleadoId,
     required List<RotacionTurnoMolino> rotacion,
@@ -406,13 +412,13 @@ class MolinosService {
     );
     ApiService.decode(res);
   }
-
+// Helper method to format a DateTime object into a string in the format YYYY-MM-DD
   String _fmt(DateTime fecha) {
     return '${fecha.year.toString().padLeft(4, '0')}-'
         '${fecha.month.toString().padLeft(2, '0')}-'
         '${fecha.day.toString().padLeft(2, '0')}';
   }
-
+// Method to fetch the mill dashboard for a specific date, shift, and view
   Future<TableroMolinos> tablero(
     DateTime fecha, {
     String turno = 'TURNO 1',
@@ -429,7 +435,7 @@ class MolinosService {
     return TableroMolinos.fromJson(
         Map<String, dynamic>.from(ApiService.decode(res)));
   }
-
+// Method to synchronize shifts for a specific date
   Future<void> sincronizarTurnos(DateTime fecha) async {
     final res = await http.post(
       Uri.parse('${ApiService.baseUrl}/molinos/sincronizar-turnos'),
@@ -438,7 +444,7 @@ class MolinosService {
     );
     ApiService.decode(res);
   }
-
+// Method to assign an employee to a machine for a specific date
   Future<void> asignar({
     required int empleadoId,
     required int maquinaId,
@@ -455,7 +461,7 @@ class MolinosService {
     );
     ApiService.decode(res);
   }
-
+// Method to remove an employee from a machine for a specific date
   Future<void> quitarEmpleado({
     required int empleadoId,
     required DateTime fecha,
@@ -470,7 +476,7 @@ class MolinosService {
     );
     ApiService.decode(res);
   }
-
+// Method to fetch the list of maintenance records for the mill
   Future<List<MantenimientoMolino>> mantenimientosMolinos() async {
     final res = await http.get(
       Uri.parse('${ApiService.baseUrl}/molinos/mantenimientos'),
@@ -481,6 +487,7 @@ class MolinosService {
         .map((e) => MantenimientoMolino.fromJson(Map<String, dynamic>.from(e)))
         .toList();
   }
+  // Method to create a new maintenance record for the mill
 
   Future<MantenimientoMolino> crearMantenimientoMolinos({
     required String tipoMant,
@@ -499,7 +506,7 @@ class MolinosService {
     return MantenimientoMolino.fromJson(
         Map<String, dynamic>.from(json['mantenimiento']));
   }
-
+// Method to update an existing maintenance record for the mill
   Future<void> cambiarEstado({
     required int maquinaId,
     required String estado,
@@ -528,6 +535,7 @@ class MolinosService {
     );
     ApiService.decode(res);
   }
+  // Method to fetch the maintenance history for a specific machine on a given date and shift
 
   Future<List<MaquinaHistorialMolino>> historialMaquina({
     required int maquinaId,
@@ -549,7 +557,7 @@ class MolinosService {
             MaquinaHistorialMolino.fromJson(Map<String, dynamic>.from(e)))
         .toList();
   }
-
+//  Method to fetch detailed maintenance history for a specific machine on a given date, shift, and view
   Future<Map<String, dynamic>> historialMaquinaDetalle({
     required int maquinaId,
     required DateTime fecha,
@@ -583,7 +591,7 @@ class MolinosService {
           Map<String, dynamic>.from(json['ficha_tecnica'] ?? const {}),
     };
   }
-
+// Method to close a maintenance record for a specific machine
   Future<void> cerrarMantenimiento({
     required int maquinaId,
     int? bitacoraId,

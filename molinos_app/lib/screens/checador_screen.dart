@@ -4,28 +4,28 @@ import 'package:flutter/material.dart';
 
 import '../services/asistencias_service.dart';
 import '../services/api_service.dart';
-
+// Pantalla principal del checador de asistencia, que permite a los empleados registrar sus checadas mediante su número de nómina
 class ChecadorScreen extends StatefulWidget {
   final Future<String?> Function() getToken;
-
+// Función que obtiene el token de autenticación necesario para realizar las solicitudes al servicio de asistencias
   const ChecadorScreen({
     super.key,
     required this.getToken,
   });
-
+// Crea el estado mutable para la pantalla del checador de asistencia
   @override
   State<ChecadorScreen> createState() => _ChecadorScreenState();
 }
-
+// Estado mutable de la pantalla del checador de asistencia, que maneja la lógica de negocio y la interfaz de usuario
 class _ChecadorScreenState extends State<ChecadorScreen> {
   late final AsistenciasService _service;
-
+// Servicio que maneja las solicitudes relacionadas con las asistencias y checadas de los empleados
   final TextEditingController _nominaController = TextEditingController();
   final FocusNode _nominaFocus = FocusNode();
-
+// Controlador de texto y nodo de enfoque para el campo de entrada del número de nómina, que permite capturar y manejar la entrada del usuario
   Timer? _timerHora;
   Timer? _timerLimpiar;
-
+// Temporizadores que actualizan la hora en pantalla y limpian la información después de un período de tiempo, respectivamente
   DateTime _horaMexico = DateTime.now();
 
   bool _loadingHora = true;
@@ -40,7 +40,7 @@ class _ChecadorScreenState extends State<ChecadorScreen> {
     _service = AsistenciasService(getToken: widget.getToken);
     _iniciarHora();
   }
-
+// Inicializa el estado del widget, creando una instancia del servicio de asistencias y comenzando a obtener la hora de México
   @override
   void dispose() {
     _timerHora?.cancel();
@@ -49,7 +49,7 @@ class _ChecadorScreenState extends State<ChecadorScreen> {
     _nominaFocus.dispose();
     super.dispose();
   }
-
+// Libera los recursos utilizados por el widget, cancelando los temporizadores y liberando los controladores de texto y nodos de enfoque
   Future<void> _iniciarHora() async {
     try {
       final data = await _service.getHoraMexico();
@@ -63,13 +63,13 @@ class _ChecadorScreenState extends State<ChecadorScreen> {
     } catch (_) {
       _horaMexico = DateTime.now();
     }
-
+    // Verifica si el widget sigue montado antes de actualizar el estado, para evitar errores si la pantalla se ha destruido mientras se obtenía la hora
     if (!mounted) return;
-
+//  Actualiza el estado del widget para reflejar que la hora ha sido cargada y comienza un temporizador que incrementa la hora cada segundo
     setState(() {
       _loadingHora = false;
     });
-
+// Programa un temporizador que incrementa la hora de México cada segundo, cancelando cualquier temporizador previo
     _timerHora?.cancel();
     _timerHora = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
@@ -79,23 +79,23 @@ class _ChecadorScreenState extends State<ChecadorScreen> {
       });
     });
   }
-
+// Programa un temporizador que limpia la información de la pantalla después de 1 minuto, cancelando cualquier temporizador previo y reiniciando el estado del widget
   void _programarLimpieza() {
     _timerLimpiar?.cancel();
 
     _timerLimpiar = Timer(const Duration(minutes: 1), () {
       if (!mounted) return;
-
+//  Actualiza el estado del widget para reflejar que la información ha sido limpiada, estableciendo los valores de resultado y error en nulos
       setState(() {
         _resultado = null;
         _error = null;
       });
-
+//  Limpia el campo de entrada del número de nómina y solicita el enfoque para que el usuario pueda ingresar un nuevo número de nómina
       _nominaController.clear();
       _nominaFocus.requestFocus();
     });
   }
-
+// Limpia inmediatamente la información de la pantalla, cancelando cualquier temporizador de limpieza activo y reiniciando el estado del widget
   void _limpiarAhora() {
     _timerLimpiar?.cancel();
 
@@ -103,23 +103,24 @@ class _ChecadorScreenState extends State<ChecadorScreen> {
       _resultado = null;
       _error = null;
     });
-
+//  Limpia el campo de entrada del número de nómina y solicita el enfoque para que el usuario pueda ingresar un nuevo número de nómina
     _nominaController.clear();
     _nominaFocus.requestFocus();
   }
+  // Formatea una fecha en el formato "dd/MM/yyyy", asegurándose de que los días y meses tengan dos dígitos mediante el uso de `padLeft`
 
   String _fechaTexto(DateTime fecha) {
     return '${fecha.day.toString().padLeft(2, '0')}/'
         '${fecha.month.toString().padLeft(2, '0')}/'
         '${fecha.year}';
   }
-
+//  Formatea una fecha en el formato "HH:mm:ss", asegurándose de que las horas, minutos y segundos tengan dos dígitos mediante el uso de `padLeft`
   String _horaTexto(DateTime fecha) {
     return '${fecha.hour.toString().padLeft(2, '0')}:'
         '${fecha.minute.toString().padLeft(2, '0')}:'
         '${fecha.second.toString().padLeft(2, '0')}';
   }
-
+//  Maneja la lógica de registrar una checada de asistencia, validando el número de nómina ingresado, realizando la solicitud al servicio de asistencias y actualizando el estado del widget según el resultado
   Future<void> _checar() async {
     final numeroNomina = _nominaController.text.trim();
 
@@ -216,7 +217,7 @@ class _ChecadorScreenState extends State<ChecadorScreen> {
     );
   }
 
-  Widget _checadorCard() {
+ Widget _checadorCard() {
     return Card(
       elevation: 2,
       child: Padding(
@@ -300,7 +301,7 @@ class _ChecadorScreenState extends State<ChecadorScreen> {
       ],
     );
   }
-
+        
   Widget _panelDerecho() {
     if (_error != null) {
       return _errorCard();
@@ -659,3 +660,4 @@ class _ChecadorScreenState extends State<ChecadorScreen> {
     );
   }
 }
+

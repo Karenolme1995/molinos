@@ -1,7 +1,8 @@
+
 import 'dart:async';
-import 'dart:convert';
 import 'dart:html' as html;
 
+import 'package:excel/excel.dart' hide Border, TextSpan;
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
@@ -37,6 +38,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
   String _q = '';
   int _pagina = 0;
   int _filasPorPagina = 500;
+  late String _turnoSeleccionado;
 
   List<dynamic> _presentes = [];
   List<dynamic> _ausentes = [];
@@ -62,10 +64,27 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
     'Diciembre',
   ];
 
+  static const List<String> _turnosMatriz = [
+    'MIXTO',
+    'TURNO 1',
+    'TURNO 2',
+    'TURNO 3',
+  ];
+
+  static String _turnoAutomaticoInicial() {
+    final now = TimeOfDay.now();
+    final minutes = now.hour * 60 + now.minute;
+
+    if (minutes >= 6 * 60 && minutes < 14 * 60) return 'TURNO 1';
+    if (minutes >= 14 * 60 && minutes < (21 * 60 + 30)) return 'TURNO 2';
+    return 'TURNO 3';
+  }
+
   @override
   void initState() {
     super.initState();
     _service = AsistenciasService(getToken: widget.getToken);
+    _turnoSeleccionado = _turnoAutomaticoInicial();
 
     _buscarController.addListener(() {
       _buscarDebounce?.cancel();
@@ -139,6 +158,38 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
     }
   }
 
+
+  Future<void> _cargarMatrizSolo() async {
+    if (!mounted) return;
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final matriz = await _service.getMatriz(
+        mes: _mes,
+        anio: _anio,
+        departamento: 'MOLINOS',
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _empleadosMatriz = List<dynamic>.from(matriz['empleados'] ?? []);
+        _pagina = 0;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString().replaceFirst('Exception: ', '');
+        _loading = false;
+      });
+    }
+  }
+
   String _fechaTexto(DateTime fecha) {
     return '${fecha.day.toString().padLeft(2, '0')}/'
         '${fecha.month.toString().padLeft(2, '0')}/'
@@ -195,7 +246,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
       _pagina = 0;
     });
 
-    await _cargarTodo();
+    await _cargarMatrizSolo();
   }
 
   Color _colorAcotacion(String? clave) {
@@ -303,9 +354,20 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
           .compareTo((b['nombre'] ?? '').toString());
     });
 
-    if (_q.isEmpty) return lista;
+    final porTurno = lista.where((emp) {
+      final turno = _turnoTexto(emp).toUpperCase();
 
-    return lista.where((emp) {
+      if (_turnoSeleccionado == 'MIXTO') {
+        return turno.contains('MIX');
+      }
+
+      return turno == _turnoSeleccionado ||
+          turno.replaceAll(RegExp(r'\s+'), ' ').contains(_turnoSeleccionado);
+    }).toList();
+
+    if (_q.isEmpty) return porTurno;
+
+    return porTurno.where((emp) {
       final nomina = (emp['numero_nomina'] ?? emp['nomina'] ?? '').toString();
       final nombre = (emp['nombre'] ?? '').toString();
       final puesto = (emp['puesto'] ?? '').toString();
@@ -356,9 +418,11 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
         final foto = emp['foto']?.toString() ?? '';
 
         return AlertDialog(
+          scrollable: true,
           title: Text(emp['nombre']?.toString() ?? 'Empleado'),
           content: SizedBox(
             width: 420,
+            height: MediaQuery.sizeOf(dialogContext).height * 0.65,
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -462,6 +526,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
         return StatefulBuilder(
           builder: (modalContext, setModalState) {
             return AlertDialog(
+              scrollable: true,
               title: Text('Acotación - ${emp['nombre']}'),
               content: SizedBox(
                 width: 420,
@@ -1017,6 +1082,63 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
     );
   }
 
+
+  Widget _pestanasTurno() {
+    final conteos = <String, int>{
+      for (final turno in _turnosMatriz) turno: 0,
+    };
+
+    for (final raw in _empleadosMatriz) {
+      final emp = Map<String, dynamic>.from(raw as Map);
+      final turno = _turnoTexto(emp).toUpperCase();
+
+      if (turno.contains('MIX')) {
+        conteos['MIXTO'] = (conteos['MIXTO'] ?? 0) + 1;
+      } else {
+        for (final opcion in const ['TURNO 1', 'TURNO 2', 'TURNO 3']) {
+          if (turno == opcion || turno.contains(opcion)) {
+            conteos[opcion] = (conteos[opcion] ?? 0) + 1;
+            break;
+          }
+        }
+      }
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: _turnosMatriz.map((turno) {
+          final seleccionado = _turnoSeleccionado == turno;
+          final color = _colorTurno(turno);
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              selected: seleccionado,
+              avatar: Icon(
+                Icons.schedule,
+                size: 17,
+                color: seleccionado ? Colors.white : color,
+              ),
+              label: Text('$turno (${conteos[turno] ?? 0})'),
+              selectedColor: color,
+              labelStyle: TextStyle(
+                color: seleccionado ? Colors.white : color,
+                fontWeight: FontWeight.w800,
+              ),
+              onSelected: (_) {
+                setState(() {
+                  _turnoSeleccionado = turno;
+                  _pagina = 0;
+                });
+              },
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   Widget _matrizAsistencia() {
     final diasMes = _diasDelMes();
     final filtrados = _empleadosFiltrados;
@@ -1038,6 +1160,8 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _pestanasTurno(),
+            const SizedBox(height: 12),
             _toolbarMatriz(filtrados.length),
             const SizedBox(height: 12),
             if (filtrados.isEmpty)
@@ -1445,12 +1569,6 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
     );
   }
 
-  String _csvValue(dynamic value) {
-    final text = value?.toString() ?? '';
-    final safe = text.replaceAll('"', '""');
-    return '"$safe"';
-  }
-
   Future<void> _exportarExcel() async {
     final empleados = _empleadosFiltrados;
 
@@ -1467,40 +1585,142 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
 
     try {
       final diasMes = _diasDelMes();
-      final rows = <List<dynamic>>[];
+      final excel = Excel.createExcel();
+      final nombreHoja = '${_meses[_mes - 1]} $_anio';
+      final sheet = excel[nombreHoja];
 
-      rows.add([
-        'Turno',
-        'Nómina',
-        'Nombre',
-        for (int d = 1; d <= diasMes; d++) _fechaCortaDia(d),
+      if (excel.sheets.containsKey('Sheet1') && nombreHoja != 'Sheet1') {
+        excel.delete('Sheet1');
+      }
+
+      final tituloStyle = CellStyle(
+        bold: true,
+        fontSize: 16,
+        fontColorHex: ExcelColor.white,
+        backgroundColorHex: ExcelColor.fromHexString('#1F4E78'),
+        horizontalAlign: HorizontalAlign.Center,
+        verticalAlign: VerticalAlign.Center,
+      );
+
+      final encabezadoStyle = CellStyle(
+        bold: true,
+        fontColorHex: ExcelColor.white,
+        backgroundColorHex: ExcelColor.fromHexString('#4472C4'),
+        horizontalAlign: HorizontalAlign.Center,
+        verticalAlign: VerticalAlign.Center,
+      );
+
+      final turnoStyles = <String, CellStyle>{
+        'MIXTO': CellStyle(
+          bold: true,
+          fontColorHex: ExcelColor.white,
+          backgroundColorHex: ExcelColor.fromHexString('#C2185B'),
+        ),
+        'TURNO 1': CellStyle(
+          bold: true,
+          fontColorHex: ExcelColor.white,
+          backgroundColorHex: ExcelColor.fromHexString('#2E7D32'),
+        ),
+        'TURNO 2': CellStyle(
+          bold: true,
+          fontColorHex: ExcelColor.white,
+          backgroundColorHex: ExcelColor.fromHexString('#EF6C00'),
+        ),
+        'TURNO 3': CellStyle(
+          bold: true,
+          fontColorHex: ExcelColor.white,
+          backgroundColorHex: ExcelColor.fromHexString('#1565C0'),
+        ),
+      };
+
+      final totalColumnas = 3 + diasMes;
+
+      sheet.appendRow([
+        TextCellValue(
+          'MATRIZ MENSUAL DE ASISTENCIA - ${_meses[_mes - 1].toUpperCase()} $_anio - $_turnoSeleccionado',
+        ),
       ]);
+
+      sheet.merge(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0),
+        CellIndex.indexByColumnRow(
+          columnIndex: totalColumnas - 1,
+          rowIndex: 0,
+        ),
+      );
+
+      sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0),
+      ).cellStyle = tituloStyle;
+
+      sheet.appendRow([
+        TextCellValue('Turno'),
+        TextCellValue('Nómina'),
+        TextCellValue('Nombre'),
+        for (int d = 1; d <= diasMes; d++)
+          TextCellValue(_fechaCortaDia(d)),
+      ]);
+
+      for (int col = 0; col < totalColumnas; col++) {
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 1))
+            .cellStyle = encabezadoStyle;
+      }
+
+      var rowIndex = 2;
 
       for (final emp in empleados) {
         final dias = Map<String, dynamic>.from(emp['dias'] ?? {});
+        final turno = _turnoTexto(emp).toUpperCase();
 
-        rows.add([
-          _turnoTexto(emp),
-          emp['numero_nomina'] ?? emp['nomina'] ?? '',
-          emp['nombre'] ?? '',
+        sheet.appendRow([
+          TextCellValue(turno),
+          TextCellValue(
+            (emp['numero_nomina'] ?? emp['nomina'] ?? '').toString(),
+          ),
+          TextCellValue((emp['nombre'] ?? '').toString()),
           for (int d = 1; d <= diasMes; d++)
-            _textoExcel(dias[d.toString()]?.toString()),
+            TextCellValue(_textoExcel(dias[d.toString()]?.toString())),
         ]);
+
+        final estiloTurno = turno.contains('MIX')
+            ? turnoStyles['MIXTO']
+            : turnoStyles[turno];
+
+        if (estiloTurno != null) {
+          sheet
+              .cell(
+                CellIndex.indexByColumnRow(
+                  columnIndex: 0,
+                  rowIndex: rowIndex,
+                ),
+              )
+              .cellStyle = estiloTurno;
+        }
+
+        rowIndex++;
       }
 
-      final csv = rows.map((row) {
-        return row.map(_csvValue).join(',');
-      }).join('\n');
+      sheet.setColumnWidth(0, 14);
+      sheet.setColumnWidth(1, 14);
+      sheet.setColumnWidth(2, 34);
+      for (int col = 3; col < totalColumnas; col++) {
+        sheet.setColumnWidth(col, 11);
+      }
 
-      final bytes = utf8.encode('\uFEFF$csv');
+      final bytes = excel.encode();
+      if (bytes == null) {
+        throw Exception('No se pudo generar el archivo Excel');
+      }
+
       final blob = html.Blob(
         [bytes],
-        'text/csv;charset=utf-8',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       );
 
       final url = html.Url.createObjectUrlFromBlob(blob);
       final fileName =
-          'asistencias_molinos_${_anio}_${_mes.toString().padLeft(2, '0')}.csv';
+          'asistencias_${_turnoSeleccionado.toLowerCase().replaceAll(' ', '_')}_${_anio}_${_mes.toString().padLeft(2, '0')}.xlsx';
 
       html.AnchorElement(href: url)
         ..setAttribute('download', fileName)
@@ -1511,7 +1731,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Archivo exportado para Excel')),
+        const SnackBar(content: Text('Archivo Excel exportado correctamente')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -1563,6 +1783,7 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
       );
     }
 
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isSmall = constraints.maxWidth < 720;
@@ -1595,3 +1816,5 @@ class _AsistenciasScreenState extends State<AsistenciasScreen> {
     );
   }
 }
+
+//end the coding

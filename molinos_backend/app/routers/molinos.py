@@ -1478,6 +1478,7 @@ def cerrar_mantenimiento_maquina(maquina_id: int, data: CerrarMantenimientoIn, u
     return {'message': 'Mantenimiento cerrado'}
 
 
+
 @router.get('/maquinas/{maquina_id}/historial')
 def historial_maquina(maquina_id: int, fecha_jornada: str, turno: str | None = None, vista: str = 'dia', user=Depends(get_current_user)):
     catalogo_turnos = _turnos_catalogo()

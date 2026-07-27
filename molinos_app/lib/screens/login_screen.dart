@@ -7,21 +7,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../app_shell.dart';
 import 'checador_screen.dart';
-
+// Pantalla de inicio de sesión para la aplicación Molinos, que incluye animaciones de fondo, validación de formulario y manejo de autenticación
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
-
+// Estado de la pantalla de inicio de sesión, que maneja la lógica de autenticación, animaciones y almacenamiento de preferencias del usuario
 class _LoginScreenState extends State<LoginScreen>
     with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-
+// Controladores de texto para los campos de usuario y contraseña, que permiten acceder y modificar el contenido de los campos de entrada
   final TextEditingController _usuario = TextEditingController();
   final TextEditingController _password = TextEditingController();
-
+// Variables de estado para controlar la carga, visibilidad de la contraseña y recordatorio del usuario, así como para almacenar mensajes de error
   bool _loading = false;
   bool _verPassword = false;
   bool _recordarUsuario = false;
@@ -32,11 +32,11 @@ class _LoginScreenState extends State<LoginScreen>
   late final AnimationController _cardController;
   late final Animation<double> _fadeAnimation;
   late final Animation<Offset> _slideAnimation;
-
+// Colores utilizados en la interfaz de usuario, definidos como constantes para mantener la consistencia del diseño
   static const Color azul = Color(0xFF005BAC);
   static const Color azulOscuro = Color(0xFF003B73);
   static const Color amarillo = Color(0xFFFFC107);
-
+// Inicializa los controladores de animación y carga el usuario recordado desde las preferencias compartidas al iniciar la pantalla de inicio de sesión
   @override
   void initState() {
     super.initState();
@@ -69,13 +69,13 @@ class _LoginScreenState extends State<LoginScreen>
     _cardController.forward();
     _cargarUsuarioRecordado();
   }
-
+// Carga el usuario previamente guardado en las preferencias compartidas y actualiza el estado de la pantalla de inicio de sesión para mostrarlo en el campo de usuario
   Future<void> _cargarUsuarioRecordado() async {
     final prefs = await SharedPreferences.getInstance();
     final usuarioGuardado = prefs.getString('molinos_usuario_recordado');
-
+// Verifica si el widget sigue montado antes de actualizar el estado, para evitar errores si la pantalla se ha destruido mientras se cargaban las preferencias
     if (!mounted) return;
-
+// Si se encuentra un usuario guardado, actualiza el campo de usuario y marca la opción "Recordar usuario" como seleccionada
     if (usuarioGuardado != null && usuarioGuardado.trim().isNotEmpty) {
       setState(() {
         _usuario.text = usuarioGuardado;
@@ -83,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen>
       });
     }
   }
-
+// Guarda o elimina el usuario en las preferencias compartidas según el estado de la opción "Recordar usuario", permitiendo que el usuario sea recordado en futuros inicios de sesión
   Future<void> _guardarUsuarioRecordado() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -96,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen>
       await prefs.remove('molinos_usuario_recordado');
     }
   }
-
+// Maneja el proceso de inicio de sesión, incluyendo la validación del formulario, la autenticación con el servicio de autenticación, el almacenamiento del usuario recordado y la navegación a la pantalla principal de la aplicación
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -104,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen>
       _loading = true;
       _error = null;
     });
-
+// Intenta iniciar sesión utilizando el servicio de autenticación y maneja cualquier error que pueda ocurrir durante el proceso
     try {
       await context.read<AuthService>().login(
             _usuario.text.trim(),
@@ -141,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen>
       }
     }
   }
-
+// Abre la pantalla del checador, permitiendo al usuario acceder a la funcionalidad de registro de asistencia sin necesidad de iniciar sesión
   Future<void> _abrirChecador() async {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -151,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
-
+// Libera los recursos de los controladores de animación y los controladores de texto cuando la pantalla de inicio de sesión se destruye, evitando fugas de memoria
   @override
   void dispose() {
     _bgController.dispose();
@@ -160,7 +160,7 @@ class _LoginScreenState extends State<LoginScreen>
     _password.dispose();
     super.dispose();
   }
-
+// Construye la interfaz de usuario de la pantalla de inicio de sesión, incluyendo el fondo animado, el panel de marca y el panel de inicio de sesión con campos de entrada y botones
   @override
   Widget build(BuildContext context) {
     final bool escritorio = MediaQuery.of(context).size.width >= 850;
@@ -225,6 +225,7 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
+  // Construye el panel de marca, que incluye el logotipo, el nombre del sistema, una descripción y un pie de página con información de la empresa, todo con un diseño atractivo y colores corporativos
 
   Widget _brandingPanel() {
     return Container(
@@ -241,6 +242,7 @@ class _LoginScreenState extends State<LoginScreen>
           ],
         ),
       ),
+      // Contenido del panel de marca
       child: Stack(
         children: [
           Positioned(
@@ -337,7 +339,7 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
-
+// Construye el panel de inicio de sesión, que incluye campos de entrada para el usuario y la contraseña, un botón de inicio de sesión, un botón para abrir el checador y mensajes de error, todo con un diseño limpio y funcional
   Widget _loginPanel() {
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -441,7 +443,7 @@ class _LoginScreenState extends State<LoginScreen>
               label: 'Usuario',
               icon: Icons.person_rounded,
               validator: (value) {
-                if (value == null || value.trim().isEmpty) {
+                if (value == null || value.trim().isEmpty) {   // Valida que el campo de usuario no esté vacío
                   return 'Ingresa tu usuario';
                 }
                 return null;
@@ -455,7 +457,7 @@ class _LoginScreenState extends State<LoginScreen>
               obscureText: !_verPassword,
               suffixIcon: IconButton(
                 tooltip:
-                    _verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña',
+                    _verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña', // Tooltip que indica la acción del botón de visibilidad de la contraseña
                 icon: Icon(
                   _verPassword
                       ? Icons.visibility_off_rounded
@@ -470,7 +472,7 @@ class _LoginScreenState extends State<LoginScreen>
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Ingresa tu contraseña';
+                  return 'Ingresa tu contraseña'; // Valida que el campo de contraseña no esté vacío
                 }
                 return null;
               },
@@ -556,7 +558,7 @@ class _LoginScreenState extends State<LoginScreen>
             ),
             const SizedBox(height: 24),
             Text(
-              '2026 © | Todos los derechos reservados.',
+              '2026 © | Todos los derechos reservados.', // Pie de página con información de derechos de autor y año actual
               style: TextStyle(
                 color: Colors.grey.shade500,
                 fontWeight: FontWeight.w500,
@@ -567,7 +569,7 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
-
+// Construye un campo de entrada de texto personalizado con validación, iconos y estilo, utilizado para los campos de usuario y contraseña en el panel de inicio de sesión
   Widget _input({
     required TextEditingController controller,
     required String label,
@@ -630,7 +632,7 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
-
+// Construye un círculo decorativo utilizado en el fondo del panel de marca, con un tamaño y color especificados
   Widget _circle(double size, Color color) {
     return Container(
       width: size,
@@ -642,12 +644,13 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 }
+// Pintor personalizado para el fondo animado de la pantalla de inicio de sesión, que dibuja un degradado, círculos amarillos, partículas blancas y una onda animada
 
 class _MolinosBackground extends CustomPainter {
   final double progress;
-
+// Constructor que recibe el progreso de la animación, utilizado para calcular las posiciones y movimientos de los elementos del fondo
   _MolinosBackground(this.progress);
-
+// Dibuja el fondo animado en el lienzo, incluyendo un degradado lineal, círculos amarillos que se mueven suavemente, partículas blancas flotantes y una onda animada en la parte inferior
   @override
   void paint(Canvas canvas, Size size) {
     final bg = Paint()
@@ -660,9 +663,9 @@ class _MolinosBackground extends CustomPainter {
           Color(0xFF1E88E5),
         ],
       ).createShader(Offset.zero & size);
-
+// Crea un objeto Paint con un degradado lineal que va desde azul oscuro hasta azul claro, para ser utilizado como fondo del lienzo
     canvas.drawRect(Offset.zero & size, bg);
-
+// Dibuja un rectángulo de fondo con un degradado lineal que va desde azul oscuro hasta azul claro, cubriendo todo el lienzo
     final yellowPaint = Paint()
       ..color = const Color(0xFFFFC107).withOpacity(0.22)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 70);
@@ -675,7 +678,7 @@ class _MolinosBackground extends CustomPainter {
       150,
       yellowPaint,
     );
-
+// Dibuja un círculo amarillo en el fondo, cuya posición vertical oscila suavemente con el tiempo, creando un efecto de animación
     canvas.drawCircle(
       Offset(
         size.width * 0.82,
@@ -684,7 +687,7 @@ class _MolinosBackground extends CustomPainter {
       190,
       yellowPaint,
     );
-
+// Dibuja otro círculo amarillo en el fondo, cuya posición vertical también oscila suavemente con el tiempo, creando un efecto de animación complementario al primer círculo
     final whitePowder = Paint()
       ..color = Colors.white.withOpacity(0.13)
       ..style = PaintingStyle.fill;
@@ -695,9 +698,9 @@ class _MolinosBackground extends CustomPainter {
       final baseY = random.nextDouble() * size.height;
       final y =
           (baseY + progress * 90 * (0.5 + random.nextDouble())) % size.height;
-
+// Calcula un radio aleatorio para cada partícula, variando entre 2 y 7 píxeles, para crear un efecto de polvo flotante más natural y dinámico
       final radius = 2 + random.nextDouble() * 5;
-
+// Dibuja partículas blancas en el fondo, que se mueven verticalmente y oscilan horizontalmente con el tiempo, creando un efecto de polvo flotante
       canvas.drawCircle(
         Offset(
           x + math.sin(progress * 2 * math.pi + i) * 18,
@@ -707,15 +710,15 @@ class _MolinosBackground extends CustomPainter {
         whitePowder,
       );
     }
-
+// Dibuja partículas blancas en el fondo, que se mueven verticalmente y oscilan horizontalmente con el tiempo, creando un efecto de polvo flotante
     final wave = Paint()
       ..color = Colors.white.withOpacity(0.09)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
-
+// Dibuja una onda animada en la parte inferior del fondo, que se mueve horizontalmente y oscila verticalmente con el tiempo, creando un efecto de movimiento fluido
     final path = Path();
     path.moveTo(0, size.height * 0.78);
-
+// Genera la forma de la onda utilizando una función seno para calcular la posición vertical de cada punto a lo largo del ancho del lienzo, creando un efecto de onda suave y continua
     for (double x = 0; x <= size.width; x++) {
       final y = size.height * 0.78 +
           math.sin(
@@ -724,12 +727,13 @@ class _MolinosBackground extends CustomPainter {
               24;
       path.lineTo(x, y);
     }
-
+// Dibuja la línea de la onda utilizando el objeto Path y el Paint configurado, creando un efecto visual de movimiento en el fondo
     canvas.drawPath(path, wave);
   }
-
+// Determina si el pintor necesita repintarse cuando cambian las propiedades, en este caso, si el progreso de la animación ha cambiado
   @override
   bool shouldRepaint(covariant _MolinosBackground oldDelegate) {
     return oldDelegate.progress != progress;
   }
 }
+// Clase de excepción personalizada para errores de autenticación, que extiende la clase Exception y permite manejar errores específicos de inicio de sesión en la aplicación

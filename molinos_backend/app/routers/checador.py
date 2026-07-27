@@ -291,25 +291,12 @@ def es_turno_nocturno(turno) -> bool:
 
 
 def calcular_fecha_jornada(turno, ahora: datetime) -> date:
-    if not turno:
-        return ahora.date()
+    """Devuelve la fecha calendario real de la checada.
 
-    hora_inicio = parse_time_value(turno.get("hora_inicio"))
-    hora_fin = parse_time_value(turno.get("hora_fin"))
-
-    if not hora_inicio or not hora_fin:
-        return ahora.date()
-
-    # Turno normal: entra y sale el mismo día.
-    if hora_fin > hora_inicio:
-        return ahora.date()
-
-    # Turno nocturno, ejemplo 21:30 a 06:00.
-    # Si checa después de media noche y antes de la hora_fin,
-    # pertenece a la jornada del día anterior.
-    if ahora.time() <= hora_fin:
-        return ahora.date() - timedelta(days=1)
-
+    Para evitar desfases, toda checada nueva guarda fecha_jornada igual a fecha.
+    El parámetro turno se conserva para no cambiar las llamadas existentes.
+    Los registros históricos de la base de datos no se modifican.
+    """
     return ahora.date()
 
 
@@ -689,3 +676,4 @@ def castigos_dia(
         ),
         "empleados": empleados if aplica_castigo else [],
     }
+

@@ -13,7 +13,7 @@ class BitacorasScreen extends StatefulWidget {
   @override
   State<BitacorasScreen> createState() => _BitacorasScreenState();
 }
-
+// --- IGNORE ---          
 class _BitacorasScreenState extends State<BitacorasScreen> {
   late final BitacorasService _service;
 
@@ -31,11 +31,11 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
   List<dynamic> _alertasProximas = [];
   List<dynamic> _alertasHoy = [];
   Map<String, dynamic> _conteos = {};
-
+// --- IGNORE ---
   final TextEditingController _buscarMaquinaCtrl = TextEditingController();
   final ScrollController _tablaHorizontalCtrl = ScrollController();
   final ScrollController _tablaVerticalCtrl = ScrollController();
-
+// --- IGNORE ---
   static const _statusItems = [
     _StatusItem('TODOS', 'Todos', Icons.list_alt, Colors.blueGrey),
     _StatusItem('a_tiempo', 'A tiempo', Icons.circle, Colors.green),
@@ -62,7 +62,7 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
     _tablaVerticalCtrl.dispose();
     super.dispose();
   }
-
+// --- IGNORE ---
   Future<void> _cargarInicial() async {
     setState(() {
       _loading = true;
@@ -85,7 +85,7 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
       if (mounted) setState(() => _loading = false);
     }
   }
-
+// --- IGNORE ---
   Future<void> _cargarArea() async {
     if (_areaId == null) {
       setState(() {
@@ -128,7 +128,7 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
       setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
     }
   }
-
+// --- IGNORE ---
   Future<void> _recargar() async {
     setState(() {
       _loading = true;
@@ -244,7 +244,7 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
     }
     return '';
   }
-
+// --- IGNORE ---
   void _showError(Object e) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
@@ -278,29 +278,42 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
   }
 
   Widget _header() {
+    final size = MediaQuery.sizeOf(context);
+    final compact = size.height < 800 || size.width < 760;
+
     return SizedBox(
       width: double.infinity,
       child: Material(
         color: Colors.white,
         elevation: 1,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 14, 22, 8),
+          padding: EdgeInsets.fromLTRB(
+            compact ? 12 : 22,
+            compact ? 8 : 14,
+            compact ? 12 : 22,
+            compact ? 5 : 8,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Bitácoras',
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 2),
               Text(
-                'Consulta por departamento, máquina, fallas y mantenimientos',
-                style: TextStyle(color: Colors.grey.shade700),
+                'Bitácoras',
+                style: TextStyle(
+                  fontSize: compact ? 21 : 26,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
-              const SizedBox(height: 14),
+              if (!compact) ...[
+                const SizedBox(height: 2),
+                Text(
+                  'Consulta por departamento, máquina, fallas y mantenimientos',
+                  style: TextStyle(color: Colors.grey.shade700),
+                ),
+              ],
+              SizedBox(height: compact ? 6 : 14),
               Wrap(
-                spacing: 10,
-                runSpacing: 10,
+                spacing: compact ? 6 : 10,
+                runSpacing: compact ? 5 : 10,
                 children: [
                   FilledButton.icon(
                     onPressed: _mostrarDialogBitacora,
@@ -331,9 +344,9 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: compact ? 6 : 14),
               _areasTabs(),
-              const SizedBox(height: 10),
+              SizedBox(height: compact ? 4 : 10),
               _statusChips(),
             ],
           ),
@@ -441,17 +454,27 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
   }
 
   Widget _content() {
-    return Padding(
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        children: [
-          _alertasCard(),
-          const SizedBox(height: 12),
-          _filtros(),
-          const SizedBox(height: 14),
-          Expanded(child: _tablaBitacoras()),
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compactHeight = constraints.maxHeight < 520;
+
+        return Padding(
+          padding: EdgeInsets.all(compactHeight ? 8 : 18),
+          child: Column(
+            children: [
+              // En ventanas con poca altura ocultamos las alertas para que
+              // la tabla conserve suficiente espacio y muestre más filas.
+              if (!compactHeight) ...[
+                _alertasCard(),
+                const SizedBox(height: 12),
+              ],
+              _filtros(),
+              SizedBox(height: compactHeight ? 6 : 14),
+              Expanded(child: _tablaBitacoras()),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -556,38 +579,67 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
   }
 
   Widget _filtros() {
-    return Row(
-      children: [
-        SizedBox(
-          width: 330,
-          child: TextField(
-            controller: _buscarMaquinaCtrl,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              labelText: 'Buscar por máquina',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            onSubmitted: (_) {
-              setState(() => _pagina = 0);
-              _recargar();
-            },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 760;
+
+        final buscador = TextField(
+          controller: _buscarMaquinaCtrl,
+          decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.search),
+            labelText: 'Buscar por máquina',
+            border: OutlineInputBorder(),
+            isDense: true,
           ),
-        ),
-        const SizedBox(width: 12),
-        FilledButton(
+          onSubmitted: (_) {
+            setState(() => _pagina = 0);
+            _recargar();
+          },
+        );
+
+        final boton = FilledButton(
           onPressed: () {
             setState(() => _pagina = 0);
             _recargar();
           },
           child: const Text('Filtrar'),
-        ),
-        const Spacer(),
-        Text('Área: ${_areaNombreActual()}'),
-        const SizedBox(width: 20),
-        Text('Total: ${_bitacoras.length}',
-            style: const TextStyle(fontWeight: FontWeight.bold)),
-      ],
+        );
+
+        final resumen = Wrap(
+          spacing: 20,
+          runSpacing: 6,
+          children: [
+            Text('Área: ${_areaNombreActual()}'),
+            Text(
+              'Total: ${_bitacoras.length}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        );
+
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              buscador,
+              const SizedBox(height: 10),
+              Align(alignment: Alignment.centerLeft, child: boton),
+              const SizedBox(height: 10),
+              resumen,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            SizedBox(width: 330, child: buscador),
+            const SizedBox(width: 12),
+            boton,
+            const Spacer(),
+            resumen,
+          ],
+        );
+      },
     );
   }
 
@@ -619,9 +671,15 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
                   child: SingleChildScrollView(
                     controller: _tablaHorizontalCtrl,
                     scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      headingRowColor:
-                          MaterialStateProperty.all(Colors.blue.shade800),
+                    child: ConstrainedBox(
+                      // La tabla conserva un ancho cómodo y se desplaza
+                      // horizontalmente en pantallas pequeñas.
+                      constraints: const BoxConstraints(minWidth: 1450),
+                      child: DataTable(
+                          columnSpacing: 24,
+                          horizontalMargin: 18,
+                          headingRowColor:
+                              MaterialStateProperty.all(Colors.blue.shade800),
                       headingTextStyle: const TextStyle(
                           color: Colors.white, fontWeight: FontWeight.bold),
                       columns: const [
@@ -669,7 +727,8 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
                             ),
                           ],
                         );
-                      }).toList(),
+                        }).toList(),
+                      ),
                     ),
                   ),
                 ),
@@ -684,56 +743,74 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
 
   Widget _paginacion() {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         border: Border(top: BorderSide(color: Colors.grey.shade300)),
       ),
-      child: Row(
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 14,
+        runSpacing: 8,
         children: [
-          const Text('Filas por página:'),
-          const SizedBox(width: 8),
-          DropdownButton<int>(
-            value: _filasPorPagina,
-            items: const [10, 20, 30, 50].map((v) {
-              return DropdownMenuItem(value: v, child: Text('$v'));
-            }).toList(),
-            onChanged: (v) {
-              if (v == null) return;
-              setState(() {
-                _filasPorPagina = v;
-                _pagina = 0;
-              });
-            },
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Filas por página:'),
+              const SizedBox(width: 8),
+              DropdownButton<int>(
+                value: _filasPorPagina,
+                items: const [10, 20, 30, 50].map((v) {
+                  return DropdownMenuItem(value: v, child: Text('$v'));
+                }).toList(),
+                onChanged: (v) {
+                  if (v == null) return;
+                  setState(() {
+                    _filasPorPagina = v;
+                    _pagina = 0;
+                  });
+                },
+              ),
+            ],
           ),
-          const Spacer(),
-          Text(_rangoPaginaTexto(),
-              style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(width: 12),
-          IconButton(
-            tooltip: 'Primera página',
-            onPressed: _pagina == 0 ? null : () => setState(() => _pagina = 0),
-            icon: const Icon(Icons.first_page),
-          ),
-          IconButton(
-            tooltip: 'Anterior',
-            onPressed: _pagina == 0 ? null : () => setState(() => _pagina--),
-            icon: const Icon(Icons.chevron_left),
-          ),
-          Text('Página ${_pagina + 1} de $_totalPaginas'),
-          IconButton(
-            tooltip: 'Siguiente',
-            onPressed: _pagina >= _totalPaginas - 1
-                ? null
-                : () => setState(() => _pagina++),
-            icon: const Icon(Icons.chevron_right),
-          ),
-          IconButton(
-            tooltip: 'Última página',
-            onPressed: _pagina >= _totalPaginas - 1
-                ? null
-                : () => setState(() => _pagina = _totalPaginas - 1),
-            icon: const Icon(Icons.last_page),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _rangoPaginaTexto(),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(width: 6),
+              IconButton(
+                tooltip: 'Primera página',
+                onPressed:
+                    _pagina == 0 ? null : () => setState(() => _pagina = 0),
+                icon: const Icon(Icons.first_page),
+              ),
+              IconButton(
+                tooltip: 'Anterior',
+                onPressed:
+                    _pagina == 0 ? null : () => setState(() => _pagina--),
+                icon: const Icon(Icons.chevron_left),
+              ),
+              Text('Página ${_pagina + 1} de $_totalPaginas'),
+              IconButton(
+                tooltip: 'Siguiente',
+                onPressed: _pagina >= _totalPaginas - 1
+                    ? null
+                    : () => setState(() => _pagina++),
+                icon: const Icon(Icons.chevron_right),
+              ),
+              IconButton(
+                tooltip: 'Última página',
+                onPressed: _pagina >= _totalPaginas - 1
+                    ? null
+                    : () => setState(() => _pagina = _totalPaginas - 1),
+                icon: const Icon(Icons.last_page),
+              ),
+            ],
           ),
         ],
       ),
@@ -1218,10 +1295,20 @@ class _BitacorasScreenState extends State<BitacorasScreen> {
         TextEditingController(text: _text(b['Supervisor2']));
     final descCorrecCtrl =
         TextEditingController(text: _text(b['descripcionCorrec']));
-    var cerrar = false;
-    var status = _text(b['status_manto']).isEmpty
-        ? 'TRABAJANDO'
-        : _text(b['status_manto']).toUpperCase();
+    // El Dropdown solo admite estos dos valores. Algunos registros pueden
+    // venir como EN ESPERA, ABIERTO, TERMINADO, etc.; los normalizamos para
+    // evitar el error: "There should be exactly one item with value...".
+    final statusRaw = _text(b['status_manto']).trim().toUpperCase();
+    var status = const {
+      'CERRADO',
+      'CERRADA',
+      'TERMINO',
+      'TERMINADO',
+      'FINALIZADO',
+    }.contains(statusRaw)
+        ? 'CERRADO'
+        : 'TRABAJANDO';
+    var cerrar = status == 'CERRADO';
 
     await showDialog<void>(
       context: context,
@@ -1353,3 +1440,4 @@ class _StatusItem {
 
   const _StatusItem(this.id, this.label, this.icon, this.color);
 }
+

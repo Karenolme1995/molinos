@@ -178,7 +178,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
     final text = value?.trim() ?? '';
     return text.isEmpty ? null : text;
   }
-
+  //  Method to request data for changing machine state
   Future<Map<String, dynamic>?> _pedirDatosEstado(
       MaquinaMolinos maquina, String estado) async {
     String observaciones = '';
@@ -203,7 +203,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
         _showError(e);
       }
     }
-
+//  Method to calculate days from maintenance time string
     int? diasDesdeTiempoMant(String value) {
       final text = value.toLowerCase().trim();
       final match = RegExp(r'\d+').firstMatch(text);
@@ -215,12 +215,12 @@ class _MolinosScreenState extends State<MolinosScreen> {
       if (text.contains('año') || text.contains('ano')) return n * 365;
       return n;
     }
-
+//  Method to calculate the next date from days
     String fechaProximaDesdeDias(int dias) {
       final f = DateTime.now().add(Duration(days: dias));
       return DateFormat('yyyy-MM-dd').format(f);
     }
-
+//  Show dialog to request data for changing machine state
     return showDialog<Map<String, dynamic>>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -464,7 +464,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       ),
     );
   }
-
+//  Method to view machine history
   Future<void> _verHistorial(MaquinaMolinos maquina) async {
     try {
       final token = context.read<AuthService>().token!;
@@ -479,12 +479,12 @@ class _MolinosScreenState extends State<MolinosScreen> {
       final fichaTecnica =
           Map<String, dynamic>.from(data['ficha_tecnica'] ?? {});
       if (!mounted) return;
-
+//  Filter history into different categories
       final historial = rows.where((h) => h.tipo != 'mantenimiento').toList();
       final mantenimientos =
           rows.where((h) => h.tipo == 'mantenimiento').toList();
       final asignaciones = rows.where((h) => h.tipo == 'asignacion').toList();
-
+//  Show dialog with tabs for history, maintenance, technical sheet, and assigned people
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
@@ -561,7 +561,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       _showError(e);
     }
   }
-
+//  Method to display a list of history or maintenance records
   Widget _historialList(List<MaquinaHistorialMolino> rows,
       {required String vacio, MaquinaMolinos? maquina}) {
     if (rows.isEmpty) return Center(child: Text(vacio));
@@ -636,7 +636,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       },
     );
   }
-
+//  Method to display the technical sheet of a machine
   Widget _fichaTecnicaMaquina(
       MaquinaMolinos maquina, Map<String, dynamic> ficha) {
     final rows = <MapEntry<String, String>>[
@@ -679,7 +679,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
               : '${maquina.mantenimientoDiasRestantes}'),
       MapEntry('Notas', (ficha['notas'] ?? 'Sin notas').toString()),
     ];
-
+//  Build a ListView to display the technical sheet in a card with a table
     return ListView(
       padding: const EdgeInsets.all(8),
       children: [
@@ -739,7 +739,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       ],
     );
   }
-
+//  Method to display assigned people by shift
   Widget _personasAsignadasPorTurno(List<MaquinaHistorialMolino> asignaciones) {
     if (asignaciones.isEmpty) {
       return const Center(
@@ -787,7 +787,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       },
     );
   }
-
+//  Method to get color based on semaphore status
   Color _colorSemaforo(String? semaforo) {
     switch ((semaforo ?? '').toLowerCase()) {
       case 'rojo':
@@ -800,7 +800,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
         return Colors.blueGrey;
     }
   }
-
+//  Method to close maintenance dialog and update machine status
   Future<void> _cerrarMantenimientoDialog(
       MaquinaMolinos maquina, MaquinaHistorialMolino bitacora) async {
     String descripcion = '';
@@ -842,7 +842,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       _showError(e);
     }
   }
-
+//  Method to view maintenance log in a formatted dialog
   void _verBitacoraFormato(MaquinaHistorialMolino h) {
     showDialog(
       context: context,
@@ -900,6 +900,9 @@ class _MolinosScreenState extends State<MolinosScreen> {
       ),
     );
   }
+  
+
+  //  Method to display error messages in a snackbar
 
   void _showError(Object e) {
     if (!mounted) return;
@@ -912,25 +915,25 @@ class _MolinosScreenState extends State<MolinosScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
-
+//  Method to filter employees by current shift
   bool _visiblePorTurno(EmpleadoMolinos e) {
     // Filtro estricto por turno actual configurado en empleados_turnos_rotacion.
     return (e.turno ?? '').toUpperCase().trim() ==
         _turnoFiltro.toUpperCase().trim();
   }
-
+//  Method to check if an employee is a washer
   bool _esLavador(EmpleadoMolinos e) =>
       (e.puesto ?? '').toUpperCase().contains('LAVADOR');
-
+//  Method to filter employees based on the current shift
   List<EmpleadoMolinos> _filtrarEmpleados(List<EmpleadoMolinos> empleados) {
     return empleados.where(_visiblePorTurno).toList();
   }
-
+//  Method to change the date and reload data
   Future<void> _cambiarFecha(int days) async {
     setState(() => _fecha = _fecha.add(Duration(days: days)));
     await _load();
   }
-
+//  Method to show employee details in a dialog
   void _detalle(EmpleadoMolinos e) {
     showDialog(
       context: context,
@@ -1022,7 +1025,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       ),
     );
   }
-
+//  Method to get unique shifts from a list of shifts
   List<TurnoMolino> _turnosUnicos(List<TurnoMolino> turnos) {
     final Map<int, TurnoMolino> map = {};
     for (final t in turnos) {
@@ -1032,12 +1035,12 @@ class _MolinosScreenState extends State<MolinosScreen> {
     list.sort((a, b) => a.id.compareTo(b.id));
     return list;
   }
-
+//  Method to validate dropdown value against available shifts
   int? _valorDropdownValido(int? value, List<TurnoMolino> turnos) {
     if (value == null || value == 0) return null;
     return turnos.any((t) => t.id == value) ? value : null;
   }
-
+//  Method to edit employee details in a dialog
   Future<void> _editarEmpleadoDialog(EmpleadoMolinos e) async {
     final token = context.read<AuthService>().token!;
     final service = MolinosService(token);
@@ -1202,6 +1205,8 @@ class _MolinosScreenState extends State<MolinosScreen> {
     direccionCtrl.dispose();
   }
 
+  //  Method to edit weekly rotation of an employee in a dialog
+
   Future<void> _rotacionSemanalDialog(
       EmpleadoMolinos e, List<TurnoMolino> turnosIniciales) async {
     final token = context.read<AuthService>().token!;
@@ -1213,7 +1218,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       _showError('No hay turnos activos para asignar.');
       return;
     }
-
+//  Fetch the employee's rotation schedule
     var rotacion = await service.rotacionEmpleado(e.id);
     if (rotacion.isEmpty) {
       rotacion = [
@@ -1235,7 +1240,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
           .toList()
         ..sort((a, b) => a.semanaOrden.compareTo(b.semanaOrden));
     }
-
+//  Show a dialog to edit the weekly rotation
     if (!mounted) return;
     await showDialog(
       context: context,
@@ -1436,7 +1441,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       ),
     );
   }
-
+//  Method to display a label and value in a formatted way
   Widget _info(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
@@ -1453,7 +1458,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       ),
     );
   }
-
+//  Method to display an alert box with a message
   Widget _alertBox(String text) {
     return Container(
       width: double.infinity,
@@ -1468,7 +1473,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
               const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
     );
   }
-
+//  Method to calculate the ISO week number for a given date
   int _semanaDelAnio(DateTime date) {
     final thursday =
         date.add(Duration(days: 4 - (date.weekday == 7 ? 7 : date.weekday)));
@@ -1480,18 +1485,18 @@ class _MolinosScreenState extends State<MolinosScreen> {
             7);
     return week.clamp(1, 53);
   }
-
+//  Method to get the start date of a given ISO week number
   DateTime _inicioSemanaIso(int semana, {int? year}) {
     final targetYear = year ?? _fecha.year;
     final jan4 = DateTime(targetYear, 1, 4);
     final mondayWeek1 = jan4.subtract(Duration(days: jan4.weekday - 1));
     return mondayWeek1.add(Duration(days: (semana.clamp(1, 53) - 1) * 7));
   }
-
+//  Method to get the end date of a given ISO week number
   DateTime _finSemanaIso(int semana, {int? year}) {
     return _inicioSemanaIso(semana, year: year).add(const Duration(days: 6));
   }
-
+//    Method to format the start date of a given week as a string   
   String _fechaSemanaInicio(int semana) {
     return DateFormat('yyyy-MM-dd').format(_inicioSemanaIso(semana));
   }
@@ -1499,7 +1504,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
   String _fechaSemanaFin(int semana) {
     return DateFormat('yyyy-MM-dd').format(_finSemanaIso(semana));
   }
-
+//  Method to create a rotation object with calculated start and end dates
   RotacionTurnoMolino _rotacionConFechas({
     required int semanaOrden,
     required int turnoId,
@@ -1511,7 +1516,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       fechaFin: _fechaSemanaFin(semanaOrden),
     );
   }
-
+//  Method to build the main UI of the screen
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
@@ -1590,7 +1595,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       },
     );
   }
-
+//  Method to build the top bar with date selector and controls
   Widget _topBar(bool canEdit) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1624,7 +1629,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
             ],
           );
         }
-
+//  Method to build the control buttons for view selection and actions
         Widget controles() {
           return Wrap(
             spacing: 8,
@@ -1687,7 +1692,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
             ],
           );
         }
-
+//  Build the top bar container with appropriate padding and layout based on screen size
         return Container(
           width: double.infinity,
           padding: EdgeInsets.symmetric(
@@ -1742,7 +1747,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       },
     );
   }
-
+//  Method to get the time range for a given shift
   (int, int)? _rangoTurno(String turno) {
     switch (turno) {
       case 'TURNO 1':
@@ -1755,14 +1760,14 @@ class _MolinosScreenState extends State<MolinosScreen> {
         return null;
     }
   }
-
+//  Method to format minutes into HH:MM string
   String _fmtMin(int value) {
     final v = value % 1440;
     final h = (v ~/ 60).toString().padLeft(2, '0');
     final m = (v % 60).toString().padLeft(2, '0');
     return '$h:$m';
   }
-
+//  Method to calculate and display the workday clock for a given shift
   String _relojJornada(String turno) {
     final rango = _rangoTurno(turno);
     if (rango == null)
@@ -1783,7 +1788,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
     final restante = (duracion - transcurrido).clamp(0, duracion);
     return 'Jornada $turno · ${_fmtMin(inicio)} - ${_fmtMin(fin)} · Transcurrido ${_fmtMin(transcurrido)} · Restante ${_fmtMin(restante)}';
   }
-
+//  Method to build the shift selection bar with current time display
   Widget _turnosBar() {
     return Container(
       width: double.infinity,
@@ -1830,7 +1835,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       ),
     );
   }
-
+//  Method to build the supervisors bar with a list of supervisors for the current shift
   Widget _supervisoresBar() {
     final supervisores = _filtrarEmpleados(_tablero?.supervisores ?? []);
 
@@ -1838,7 +1843,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       builder: (context, constraints) {
         final pantallaChica = constraints.maxWidth < 760;
         final compacto = pantallaChica || _vistaTabla;
-
+//  Build the supervisors bar container with appropriate padding and layout based on screen size
         return Container(
           width: double.infinity,
           color: Colors.white,
@@ -1915,7 +1920,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       },
     );
   }
-
+//  Method to build the employees panel with draggable employee chips and categorized sections
   Widget _panelEmpleados(bool canEdit) {
     final t = _tablero!;
     final empleadosDelTurno = _filtrarEmpleados(t.empleadosTurno)
@@ -1993,7 +1998,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       },
     );
   }
-
+//  Method to build a section title with an icon and optional compact style
   Widget _sectionTitle(String title, IconData icon, {bool compacto = false}) {
     return Row(
       children: [
@@ -2011,7 +2016,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       ],
     );
   }
-
+//  Method to build a draggable employee chip with optional edit capability
   Widget _empleadoDraggable(EmpleadoMolinos e, bool canEdit) {
     final card = _EmpleadoChip(empleado: e, onTap: () => _detalle(e));
     return Padding(
@@ -2029,7 +2034,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
           : card,
     );
   }
-
+//  Method to build a list tile for an employee with an alert/acotación
   Widget _alertTile(EmpleadoMolinos e) {
     return ListTile(
       dense: true,
@@ -2039,7 +2044,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       onTap: () => _detalle(e),
     );
   }
-
+//  Method to build a list tile for an absent employee
   Widget _ausenteTile(EmpleadoMolinos e) {
     return ListTile(
       dense: true,
@@ -2049,7 +2054,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
       onTap: () => _detalle(e),
     );
   }
-
+//  Method to build the machines panel with cards for each machine and its assigned employees
   Widget _panelMaquinas(bool canEdit, {bool compacto = false}) {
     final maquinas = _tablero!.maquinas;
 
@@ -2062,7 +2067,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
             : compacto
                 ? 240.0
                 : 340.0;
-
+//  Build a scrollable view containing a wrap of machine cards with appropriate spacing and layout based on screen size
         return SingleChildScrollView(
           padding: EdgeInsets.all(compacto ? 8 : 12),
           child: Wrap(
@@ -2089,7 +2094,7 @@ class _MolinosScreenState extends State<MolinosScreen> {
     );
   }
 }
-
+//  Widget to display an employee chip with avatar, name, role, and status, with optional compact and highlighted styles
 class _EmpleadoChip extends StatelessWidget {
   final EmpleadoMolinos empleado;
   final VoidCallback onTap;
@@ -2102,7 +2107,7 @@ class _EmpleadoChip extends StatelessWidget {
     this.destacado = false,
     this.compacto = false,
   });
-
+//  Method to convert a color name string to a Color object, with default fallback
   Color _colorFromName(String? value) {
     switch ((value ?? '').toLowerCase()) {
       case 'azul':
@@ -2127,7 +2132,7 @@ class _EmpleadoChip extends StatelessWidget {
         return Colors.blueGrey;
     }
   }
-
+//  Method to calculate the ISO week number for a given date
   int _semanaDelAnio(DateTime date) {
     final thursday =
         date.add(Duration(days: 4 - (date.weekday == 7 ? 7 : date.weekday)));
@@ -2139,7 +2144,7 @@ class _EmpleadoChip extends StatelessWidget {
             7);
     return week.clamp(1, 53);
   }
-
+//  Method to get the start date of a given ISO week number
   @override
   Widget build(BuildContext context) {
     final turnoColor = _colorFromName(empleado.turnoColor);
@@ -2191,7 +2196,7 @@ class _EmpleadoChip extends StatelessWidget {
         ),
       );
     }
-
+//  Build the full employee chip with avatar, name, role, and status, with optional highlighted style
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
@@ -2275,21 +2280,21 @@ class _EmpleadoChip extends StatelessWidget {
     );
   }
 }
-
+//  Widget to display an animated icon representing the machine's state, with different animations based on the state
 class _EstadoAnimadoIcon extends StatefulWidget {
   final String estado;
   final Color color;
-
+//  Constructor for the _EstadoAnimadoIcon widget, requiring the state and color parameters
   const _EstadoAnimadoIcon({required this.estado, required this.color});
 
   @override
   State<_EstadoAnimadoIcon> createState() => _EstadoAnimadoIconState();
 }
-
+//  State class for the _EstadoAnimadoIcon widget, managing the animation controller and building the animated icon based on the machine's state
 class _EstadoAnimadoIconState extends State<_EstadoAnimadoIcon>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-
+//  Initialize the animation controller and set it to repeat indefinitely
   @override
   void initState() {
     super.initState();
@@ -2297,13 +2302,13 @@ class _EstadoAnimadoIconState extends State<_EstadoAnimadoIcon>
         vsync: this, duration: const Duration(milliseconds: 1100))
       ..repeat();
   }
-
+//  
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-
+//  Method to get the appropriate icon based on the machine's state
   IconData get _icon {
     switch (widget.estado.toLowerCase()) {
       case 'trabajando':
@@ -2318,7 +2323,7 @@ class _EstadoAnimadoIconState extends State<_EstadoAnimadoIcon>
         return Icons.circle;
     }
   }
-
+//  Method to calculate the ISO week number for a given date
   int _semanaDelAnio(DateTime date) {
     final thursday =
         date.add(Duration(days: 4 - (date.weekday == 7 ? 7 : date.weekday)));
@@ -2330,7 +2335,7 @@ class _EstadoAnimadoIconState extends State<_EstadoAnimadoIcon>
             7);
     return week.clamp(1, 53);
   }
-
+                 
   @override
   Widget build(BuildContext context) {
     final estado = widget.estado.toLowerCase();
@@ -2358,6 +2363,8 @@ class _EstadoAnimadoIconState extends State<_EstadoAnimadoIcon>
   }
 }
 
+//  Widget _estadoIcono(String estado, Color color) {
+
 class _MaquinaMolinoCard extends StatelessWidget {
   final MaquinaMolinos maquina;
   final List<EmpleadoMolinos> empleados;
@@ -2368,7 +2375,7 @@ class _MaquinaMolinoCard extends StatelessWidget {
   final ValueChanged<String> onEstado;
   final ValueChanged<EmpleadoMolinos> onEmpleadoTap;
   final VoidCallback onHistorial;
-
+//  Constructor for the _MaquinaMolinoCard widget, requiring the machine, employees, edit capability, and callback functions for various actions
   const _MaquinaMolinoCard({
     required this.maquina,
     required this.empleados,
@@ -2380,7 +2387,7 @@ class _MaquinaMolinoCard extends StatelessWidget {
     required this.onEmpleadoTap,
     required this.onHistorial,
   });
-
+//  Method to convert a machine state string to a corresponding color, with default fallback
   Color _estadoColor(String value) {
     switch (value.toLowerCase()) {
       case 'verde':
@@ -2399,7 +2406,7 @@ class _MaquinaMolinoCard extends StatelessWidget {
         return Colors.blueGrey;
     }
   }
-
+//  Method to convert a machine state string to a corresponding label, with default fallback
   String _estadoLabel(String estado) {
     switch (estado) {
       case 'trabajando':
@@ -2414,7 +2421,7 @@ class _MaquinaMolinoCard extends StatelessWidget {
         return estado.toUpperCase();
     }
   }
-
+//  Method to convert a semaphore state string to a corresponding color, with default fallback
   Color _colorSemaforo(String? semaforo) {
     switch ((semaforo ?? '').toLowerCase()) {
       case 'rojo':
@@ -2428,6 +2435,8 @@ class _MaquinaMolinoCard extends StatelessWidget {
     }
   }
 
+  //  Method to calculate the duration since a given start time and format it as HH:MM:SS
+
   String _duracionEstado(DateTime? inicio) {
     if (inicio == null) return '--:--:--';
     final diff = DateTime.now().difference(inicio);
@@ -2436,7 +2445,7 @@ class _MaquinaMolinoCard extends StatelessWidget {
     final seconds = diff.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$hours:$minutes:$seconds';
   }
-
+//  Method to build a button for changing the machine's state, with visual feedback based on selection and edit capability
   Widget _estadoButton(String estado, Color color) {
     final selected = maquina.estado.toLowerCase() == estado;
     return OutlinedButton(
@@ -2456,7 +2465,7 @@ class _MaquinaMolinoCard extends StatelessWidget {
               fontWeight: FontWeight.bold)),
     );
   }
-
+//  Method to calculate the ISO week number for a given date
   int _semanaDelAnio(DateTime date) {
     final thursday =
         date.add(Duration(days: 4 - (date.weekday == 7 ? 7 : date.weekday)));
@@ -2468,7 +2477,7 @@ class _MaquinaMolinoCard extends StatelessWidget {
             7);
     return week.clamp(1, 53);
   }
-
+//  Method to build a widget representing an employee assigned to the machine, with visual feedback if they are not present
   Widget _empleadoEnMaquina(
       EmpleadoMolinos e, ValueChanged<EmpleadoMolinos> onTap) {
     final noCheco = !e.presente;
@@ -2505,7 +2514,7 @@ class _MaquinaMolinoCard extends StatelessWidget {
       ],
     );
   }
-
+//  Method to build a compact widget representing an employee assigned to the machine, with visual feedback if they are not present
   Widget _empleadoEnMaquinaCompacto(
       EmpleadoMolinos e, ValueChanged<EmpleadoMolinos> onTap) {
     final noCheco = !e.presente;
@@ -2547,7 +2556,7 @@ class _MaquinaMolinoCard extends StatelessWidget {
       ),
     );
   }
-
+//  Build method for the _MaquinaMolinoCard widget, constructing the UI for the machine card with its state, assigned employees, and action buttons
   @override
   Widget build(BuildContext context) {
     final color = _estadoColor(
@@ -2778,3 +2787,4 @@ class _MaquinaMolinoCard extends StatelessWidget {
     );
   }
 }
+//  Widget to display an employee chip with avatar, name, role, and status, with optional compact and highlighted styles
